@@ -5,84 +5,203 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WebAudio-RTA</title>
 <link rel="icon" type="image/x-icon" href="/img/logo.png">
+<script>
+try{var t=(JSON.parse(localStorage.getItem('webrta.v1')||'{}')).theme;if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='dark';}
+</script>
 <style>
 :root{
   color-scheme: dark;
   --bg:#0c1016; --panel:#141a22; --panel2:#1a222c; --line:#263140; --line2:#364458;
   --fg:#d8e0ea; --dim:#8a97a8; --faint:#5d6b7d;
-  --live:#5ad7f7; --peak:#f5b14c; --ok:#7bd88f; --bad:#ff6b6b;
+  --live:#5ad7f7; --peak:#f5b14c; --ok:#7bd88f; --bad:#ff6b6b; --warn:#f5b14c; --yel:#f2d04a;
+  --accent:#14597a; --accent-h:#1a6a92; --accent-line:#2b86b0; --sel:#2a3b52; --selfg:#fff;
+  --plot:#0a0e13; --overlay:rgba(10,14,19,.8); --hover:#51647c;
   --ui: system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --mono: ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,"Liberation Mono",monospace;
 }
+:root[data-theme="light"]{
+  color-scheme: light;
+  --bg:#eef1f5; --panel:#ffffff; --panel2:#f3f5f8; --line:#d8dee6; --line2:#c3ccd8;
+  --fg:#17202b; --dim:#586577; --faint:#7c8898;
+  --live:#0b78a8; --peak:#b86b00; --ok:#1f8a3b; --bad:#d63031; --warn:#b86b00; --yel:#c79a00;
+  --accent:#0b78a8; --accent-h:#0a6490; --accent-line:#0a6490; --sel:#dbe9f3; --selfg:#0a3a55;
+  --plot:#fbfcfd; --overlay:rgba(251,252,253,.85); --hover:#8fa0b4;
+}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-html,body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 var(--ui)}
-body{padding:10px max(12px,env(safe-area-inset-right)) 16px max(12px,env(safe-area-inset-left))}
-.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:2px 2px 10px}
-.top h1{margin:0;font-size:17px;font-weight:650;letter-spacing:.01em}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:13px/1.4 var(--ui);overflow:hidden}
+body{height:100dvh;display:flex;flex-direction:column;gap:8px;padding:8px max(12px,env(safe-area-inset-right)) 10px max(12px,env(safe-area-inset-left))}
+.top{flex:none;display:flex;align-items:center;gap:14px;min-height:30px}
+.top h1{margin:0;font-size:16px;font-weight:650;letter-spacing:.01em;white-space:nowrap}
 .top h1 small{font-weight:400;color:var(--dim);font-size:12px;margin-left:8px}
-.status{flex:1;min-width:200px;color:var(--dim);font-size:12.5px}
-.status.bad{color:var(--bad)} .status.warn{color:var(--peak)} .status.ok{color:var(--ok)}
-.perf{font:12px var(--mono);color:var(--dim);display:flex;gap:12px}
+.status{flex:1;min-width:0;color:var(--dim);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status.bad{color:var(--bad)} .status.warn{color:var(--warn)} .status.ok{color:var(--ok)}
+.perf{font:11.5px var(--mono);color:var(--dim);display:flex;gap:10px;white-space:nowrap}
 .perf b{color:var(--fg);font-weight:600}
-.main{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;align-items:start}
-@media (max-width:960px){.main{grid-template-columns:minmax(0,1fr)}}
-.stage{min-width:0;display:flex;flex-direction:column;gap:8px}
-.meters{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px}
-.tile{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 10px;min-width:0}
-.tile .lab{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);display:flex;justify-content:space-between;gap:6px}
-.tile .val{font:600 22px/1.2 var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
-.tile .val small{font-size:11px;color:var(--dim);font-weight:400;margin-left:3px}
-.lamp{width:9px;height:9px;border-radius:50%;background:#2a3442;align-self:center}
+.main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 12px var(--sidew,320px);gap:0}
+.stage{min-width:0;min-height:0;display:flex;flex-direction:column;gap:6px}
+.meters{flex:none;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 9px;min-width:0}
+.tile .lab{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);display:flex;justify-content:space-between;align-items:center;gap:6px;min-height:15px}
+.tile .val{font:600 18px/1.25 var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .val small{font-size:10px;color:var(--dim);font-weight:400;margin-left:3px}
+.lamp{width:8px;height:8px;border-radius:50%;background:var(--line2)}
 .lamp.on{background:var(--bad);box-shadow:0 0 8px var(--bad)}
-.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.bar{flex:none;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
 .bar .grow{flex:1}
 .grp{display:flex;align-items:center;gap:6px}
-.grp>span{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
-button,select,input[type=number]{font:inherit;color:var(--fg);background:var(--panel2);border:1px solid var(--line2);border-radius:5px;padding:5px 9px;min-height:30px}
+.grp>span{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+button,select,input[type=number]{font:inherit;color:var(--fg);background:var(--panel2);border:1px solid var(--line2);border-radius:5px;padding:3px 8px;min-height:28px}
 button{cursor:pointer}
-button:hover{border-color:#51647c}
+button:hover{border-color:var(--hover)}
 button:focus-visible,select:focus-visible,input:focus-visible,.seg label:has(input:focus-visible){outline:2px solid var(--live);outline-offset:1px}
-button.primary{background:#14597a;border-color:#2b86b0;font-weight:600}
-button.primary:hover{background:#1a6a92}
-button.on{background:#2a3b52;border-color:var(--live);color:#fff}
+button.primary{background:var(--accent);border-color:var(--accent-line);color:#fff;font-weight:600}
+button.primary:hover{background:var(--accent-h)}
+button.on{background:var(--sel);border-color:var(--live);color:var(--selfg)}
 button:disabled{opacity:.5;cursor:default}
+button.icon{width:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:none}
+button.icon svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.i-moon{display:none}
+:root[data-theme="light"] .i-sun{display:none}
+:root[data-theme="light"] .i-moon{display:block}
 .seg{display:inline-flex;border:1px solid var(--line2);border-radius:5px;overflow:hidden}
-.seg label{padding:5px 11px;cursor:pointer;background:var(--panel2);border-right:1px solid var(--line2);min-height:30px;display:flex;align-items:center}
+.seg label{padding:3px 10px;cursor:pointer;background:var(--panel2);border-right:1px solid var(--line2);min-height:26px;display:flex;align-items:center}
 .seg label:last-child{border-right:0}
 .seg input{position:absolute;opacity:0;pointer-events:none}
-.seg label:has(input:checked){background:#2a3b52;color:#fff}
-.chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;min-height:26px;font:12px var(--mono)}
+.seg label:has(input:checked){background:var(--sel);color:var(--selfg)}
+.chips{flex:none;display:flex;gap:6px;flex-wrap:wrap}
+.chips:empty{display:none}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:0 8px;min-height:22px;font:11.5px var(--mono)}
 .chip i{width:9px;height:9px;border-radius:50%;background:var(--c)}
-.plotwrap{position:relative;height:clamp(300px,50vh,620px);background:#0a0e13;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.tile .lab .chip{min-height:0;padding:0 6px;font-size:10px;text-transform:none;letter-spacing:0}
+.plotwrap{position:relative;flex:1;min-height:140px;background:var(--plot);border:1px solid var(--line);border-radius:6px;overflow:hidden}
 #plot{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
-.cta{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(10,14,19,.78);text-align:center;padding:16px}
+.cta{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:var(--overlay);text-align:center;padding:16px}
 .cta p{margin:0;max-width:44ch;color:var(--dim)}
 .cta .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-.specwrap{border:1px solid var(--line);border-radius:6px;background:#05070b;overflow:hidden;height:150px}
+.specwrap{flex:none;height:var(--spech,clamp(60px,13vh,120px));border:1px solid var(--line);border-radius:6px;background:#05070b;overflow:hidden}
 #spec{display:block}
-.side{display:flex;flex-direction:column;gap:10px;min-width:0}
-.sec{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
-.sec h2{margin:0;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:600}
+.side{min-height:0;display:flex;flex-direction:column;gap:8px}
+.tabs{flex:none;display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:3px}
+.tabs button{flex:1;min-width:0;min-height:26px;padding:3px 2px;border:0;background:transparent;color:var(--dim);font-size:11.5px;font-weight:550;border-radius:5px}
+.tabs button:hover{color:var(--fg)}
+.tabs button.on{background:var(--panel);color:var(--fg);box-shadow:0 0 0 1px var(--line2)}
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:10px 12px;flex-direction:column;gap:9px}
+.sec[data-panel]{display:none;flex:0 1 auto;min-height:0;overflow:auto}
+.sec[data-panel].active{display:flex}
+.sec h2{margin:0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:600}
+.sec h2:not(:first-child){margin-top:6px;padding-top:10px;border-top:1px solid var(--line)}
 .fld{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .fld>label{color:var(--dim);font-size:12.5px}
-.fld select,.fld input[type=number]{width:150px}
-.fld input[type=range]{width:150px;accent-color:var(--live)}
-.note{font-size:12px;color:var(--faint);margin:0}
+.fld select,.fld input[type=number]{width:140px}
+.fld input[type=range]{width:140px;accent-color:var(--live)}
+.fld input[type=checkbox]{accent-color:var(--live)}
+.note{font-size:11.5px;color:var(--faint);margin:0}
 .hint{font-size:11.5px;color:var(--faint);margin:0}
 .mono{font:12px var(--mono);font-variant-numeric:tabular-nums}
 .dly{display:flex;align-items:baseline;gap:10px}
-.dly b{font:600 22px/1.2 var(--mono);color:var(--live);font-variant-numeric:tabular-nums}
+.dly b{font:600 20px/1.2 var(--mono);color:var(--live);font-variant-numeric:tabular-nums}
 .dly small{font:12px var(--mono);color:var(--dim)}
 input[type=file]{max-width:100%;font-size:12px;color:var(--dim)}
+@media (max-width:900px){
+  html,body{height:auto;overflow:auto}
+  body{height:auto;min-height:100dvh}
+  .main{grid-template-columns:minmax(0,1fr)}
+  .plotwrap{flex:none;height:clamp(260px,45vh,520px)}
+  .specwrap{height:90px}
+  .meters{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .perf{display:none}
+  .vsplit,.hsplit{display:none}
+}
+
+/* ---- motion, button feel ---- */
+:root{--ease:cubic-bezier(.2,.8,.2,1)}
+body,.tile,.sec,.tabs,.plotwrap,.specwrap,select,input[type=number],.seg{transition:background-color .28s var(--ease),border-color .28s var(--ease),color .28s var(--ease)}
+button{position:relative;overflow:hidden;transition:background-color .2s var(--ease),border-color .2s var(--ease),color .2s var(--ease),box-shadow .2s var(--ease),transform .15s var(--ease)}
+button:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.22)}
+button:not(:disabled):active{transform:translateY(0) scale(.95);box-shadow:none}
+button.primary:not(:disabled):hover{box-shadow:0 4px 14px color-mix(in srgb,var(--accent) 55%,transparent)}
+.tabs button:not(:disabled):hover{transform:none;box-shadow:none}
+.tabs button{flex:1 0 auto;padding:3px 6px;transition:background-color .2s var(--ease),color .2s var(--ease),box-shadow .2s var(--ease)}
+.seg label{transition:background-color .2s var(--ease),color .2s var(--ease),transform .12s var(--ease)}
+.seg label:active{transform:scale(.94)}
+.ripple{position:absolute;border-radius:50%;background:currentColor;opacity:.28;transform:scale(0);animation:rip .6s var(--ease) forwards;pointer-events:none}
+@keyframes rip{to{transform:scale(1);opacity:0}}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes blink{50%{opacity:.35}}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 60%,transparent)}70%,100%{box-shadow:0 0 0 12px transparent}}
+@keyframes alarm{from{box-shadow:0 0 0 0 transparent}to{box-shadow:0 0 14px 1px var(--bad)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.tile{position:relative;animation:rise .5s var(--ease) both}
+.tile:nth-child(2){animation-delay:.04s}.tile:nth-child(3){animation-delay:.08s}.tile:nth-child(4){animation-delay:.12s}.tile:nth-child(5){animation-delay:.16s}.tile:nth-child(6){animation-delay:.2s}
+.tile .val{transition:color .35s var(--ease)}
+.tile.lim-ok{border-color:var(--ok)}.tile.lim-ok .val{color:var(--ok)}
+.tile.lim-warn{border-color:var(--yel)}.tile.lim-warn .val{color:var(--yel)}
+.tile.lim-over{border-color:var(--bad)}.tile.lim-over .val{color:var(--bad)}
+.tile .val small:empty{display:none}
+.sec[data-panel].active{animation:pop .22s var(--ease)}
+.cta{animation:fade .35s var(--ease)}
+.cta .primary{animation:pulse 2.4s infinite}
+.status::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--faint);margin-right:8px;vertical-align:1px}
+.status.ok::before{background:var(--ok);animation:blink 1.8s infinite}
+.status.warn::before{background:var(--warn)}
+.status.bad::before{background:var(--bad)}
+.lamp.on{animation:blink .5s infinite}
+.icon.spin svg{animation:spin .55s var(--ease)}
+/* ---- splitters ---- */
+.vsplit{position:relative;cursor:col-resize;touch-action:none;outline:none}
+.vsplit::after{content:"";position:absolute;left:4px;top:50%;width:4px;height:44px;margin-top:-22px;border-radius:2px;background:var(--line2);transition:background-color .2s,height .2s var(--ease),margin-top .2s var(--ease)}
+.vsplit:hover::after,.vsplit.drag::after,.vsplit:focus-visible::after{background:var(--live);height:64px;margin-top:-32px}
+.hsplit{position:relative;height:0;margin:-3px 0;z-index:2;touch-action:none;outline:none}
+.hsplit::before{content:"";position:absolute;left:0;right:0;top:-6px;height:12px;cursor:row-resize}
+.hsplit::after{content:"";position:absolute;left:50%;top:-2px;width:44px;height:4px;margin-left:-22px;border-radius:2px;background:var(--line2);pointer-events:none;transition:background-color .2s,width .2s var(--ease),margin-left .2s var(--ease)}
+.hsplit:hover::after,.hsplit.drag::after,.hsplit:focus-visible::after{background:var(--live);width:64px;margin-left:-32px}
+.hsplit:has(+ .specwrap[hidden]){display:none}
+body.dragging{user-select:none}
+/* ---- tools panel ---- */
+.stack{display:flex;flex-direction:column;gap:9px}
+.stack.sep{border-top:1px solid var(--line);padding-top:10px}
+.fblist{display:flex;flex-direction:column;gap:5px;min-height:20px}
+.fbitem{display:grid;grid-template-columns:auto 1fr;gap:0 10px;background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--bad);border-radius:5px;padding:5px 8px;font:12px var(--mono)}
+.fbitem b{color:var(--bad)}
+.fbitem span{text-align:right;color:var(--dim)}
+.fbitem em{grid-column:1/-1;font-style:normal;color:var(--fg);font-family:var(--ui);font-size:11.5px}
+.mono.bad{color:var(--bad)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* ---- sliding tabs ---- */
+.tabs{position:relative}
+.tabs .ind{position:absolute;top:3px;bottom:3px;left:0;width:0;border-radius:5px;background:var(--panel);box-shadow:0 0 0 1px var(--line2),0 2px 8px rgba(0,0,0,.18);transition:transform .34s var(--ease),width .34s var(--ease);pointer-events:none}
+.tabs button{z-index:1}
+.tabs button.on{background:transparent;box-shadow:none;color:var(--fg)}
+@keyframes slideIn{from{opacity:0;transform:translateX(calc(var(--dir,1)*28px))}to{opacity:1;transform:none}}
+.sec[data-panel].active{animation:slideIn .32s var(--ease)}
+.side{overflow-x:clip}
+.mono.ok{color:var(--ok)}
+.mono.warn{color:var(--yel)}
+/* ---- VU ---- */
+.vuwrap{flex:none;height:40px;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden;animation:rise .3s var(--ease)}
+#vu{display:block;width:100%;height:100%}
+/* ---- tips ---- */
+.tip{position:fixed;z-index:1000;max-width:270px;padding:8px 11px;border-radius:7px;background:var(--panel2);color:var(--fg);border:1px solid var(--line2);box-shadow:0 8px 24px rgba(0,0,0,.35);font-size:12px;line-height:1.4;pointer-events:none;opacity:0;transform:translateY(4px) scale(.98);transition:opacity .15s var(--ease),transform .15s var(--ease)}
+.tip[data-pos="t"]{transform:translateY(-4px) scale(.98)}
+.tip.in{opacity:1;transform:none}
 </style>
 </head>
 <body>
+<div id="tip" class="tip" role="tooltip" hidden></div>
 <header class="top">
-  <h1>WebRTA <small>WebAudio-RTA</small></h1>
+  <h1>WebAudio<small>real-time analyzer</small></h1>
   <div id="status" class="status">Idle. Start the microphone or try the demo signal.</div>
   <div class="perf"><span><b id="fps">0</b> fps</span><span>frame <b id="ms">0.0</b> ms</span><span>fft <b id="dspms">0.0</b> ms</span></div>
+  <button id="tipBtn" class="icon" aria-label="Toggle tips" aria-pressed="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1.1.9-1.1 1.7M12 17h.01"/></svg></button>
+  <button id="fsBtn" class="icon" title="Fullscreen (F)" aria-label="Toggle fullscreen"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  <button id="theme" class="icon" title="Switch to light mode" aria-label="Switch to light mode">
+    <svg class="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    <svg class="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+  </button>
 </header>
 <div class="main">
 <section class="stage">
@@ -91,9 +210,10 @@ input[type=file]{max-width:100%;font-size:12px;color:var(--dim)}
     <div class="tile"><div class="lab"><span id="lS">LZS</span></div><div class="val"><span id="vS">&ndash;</span><small class="u">dBFS</small></div></div>
     <div class="tile"><div class="lab"><span id="lE">LZeq</span><button id="rstLeq" class="chip" title="Reset Leq, peak and averages">reset</button></div><div class="val"><span id="vE">&ndash;</span><small class="u">dBFS</small></div></div>
     <div class="tile"><div class="lab"><span>LZpk</span></div><div class="val"><span id="vP">&ndash;</span><small class="u">dBFS</small></div></div>
-    <div class="tile"><div class="lab"><span>Peak freq</span></div><div class="val"><span id="vPF">&ndash;</span></div></div>
+    <div class="tile"><div class="lab"><span>Peak freq</span></div><div class="val"><span id="vPF">&ndash;</span><small id="vPN"></small></div></div>
     <div class="tile"><div class="lab"><span>Input peak</span><i id="clip" class="lamp" title="Clip lamp"></i></div><div class="val"><span id="vIn">&ndash;</span><small>dBFS</small></div></div>
   </div>
+  <div class="vuwrap" id="vuwrap"><canvas id="vu"></canvas></div>
   <div class="bar">
     <div class="seg" role="radiogroup" aria-label="Mode">
       <label><input type="radio" name="mode" value="rta">RTA</label><label><input type="radio" name="mode" value="tf">Transfer</label>
@@ -125,6 +245,7 @@ input[type=file]{max-width:100%;font-size:12px;color:var(--dim)}
     <button id="freeze" title="Space">Freeze</button>
     <button id="capture" title="C">Capture</button>
     <button id="fit">Fit Y</button>
+    <button id="vuBtn" class="on" aria-pressed="true">VU</button>
   </div>
   <div class="chips" id="chips"></div>
   <div class="plotwrap" id="plotwrap">
@@ -134,11 +255,27 @@ input[type=file]{max-width:100%;font-size:12px;color:var(--dim)}
       <p>Audio is analyzed on this device. Nothing is recorded or uploaded.</p>
     </div>
   </div>
+  <div class="hsplit" id="splitSpec" role="separator" aria-orientation="horizontal" aria-label="Resize spectrograph" tabindex="0" title="Drag to resize, double-click to reset"></div>
   <div class="specwrap" id="specwrap"><canvas id="spec"></canvas></div>
 </section>
+<div class="vsplit" id="splitSide" role="separator" aria-orientation="vertical" aria-label="Resize side panel" tabindex="0" title="Drag to resize, double-click to reset"></div>
 <aside class="side">
-  <div class="sec tf-only">
-    <h2>Transfer function</h2>
+  <nav class="tabs" role="tablist" aria-label="Settings">
+    <i class="ind"></i>
+    <button data-tab="input" class="on" role="tab">Input</button>
+    <button data-tab="tf" class="tf-only" role="tab">Transfer</button>
+    <button data-tab="display" role="tab">Display</button>
+    <button data-tab="gen" role="tab">Signal</button>
+    <button data-tab="tools" role="tab">Tools</button>
+    <button data-tab="cal" role="tab">Calibrate</button>
+  </nav>
+  <section class="sec active" data-panel="input">
+    <div class="fld"><label for="device">Device</label><select id="device"><option value="">Default input</option></select></div>
+    <div class="fld"><label for="chan">Meas channel</label><select id="chan"><option value="0">1</option><option value="1">2</option></select></div>
+    <div class="grp"><button class="primary" id="mic">Start mic</button><button id="demo">Demo signal</button></div>
+    <p class="note">Echo cancellation, noise suppression and auto gain are requested off so readings stay linear.</p>
+  </section>
+  <section class="sec tf-only" data-panel="tf">
     <div class="fld"><label for="refSrc">Reference</label>
       <select id="refSrc"><option value="1">Input 2 (loopback)</option><option value="0">Input 1</option><option value="2">Generator (internal)</option></select></div>
     <div class="fld"><label>Ref level</label><span id="vRef" class="mono">&ndash;</span></div>
@@ -149,23 +286,8 @@ input[type=file]{max-width:100%;font-size:12px;color:var(--dim)}
     <div class="fld"><label for="cohB">Coh. blank <span id="cohV">0%</span></label><input type="range" id="cohB" min="0" max="0.9" step="0.05" value="0"></div>
     <div class="fld"><label for="cohOn">Show coherence</label><input type="checkbox" id="cohOn"></div>
     <p class="note">Measurement is the channel set under Input. Mic correction is applied to the magnitude.</p>
-  </div>
-  <div class="sec">
-    <h2>Input</h2>
-    <div class="fld"><label for="device">Device</label><select id="device"><option value="">Default input</option></select></div>
-    <div class="fld"><label for="chan">Meas channel</label><select id="chan"><option value="0">1</option><option value="1">2</option></select></div>
-    <div class="grp"><button class="primary" id="mic">Start mic</button><button id="demo">Demo signal</button></div>
-    <p class="note">Echo cancellation, noise suppression and auto gain are requested off so readings stay linear.</p>
-  </div>
-  <div class="sec">
-    <h2>Calibration</h2>
-    <div class="fld"><label for="offset">SPL offset (dB)</label><input type="number" id="offset" step="0.1" value="0"></div>
-    <div class="fld"><label for="calLevel">Calibrator (dB SPL)</label><input type="number" id="calLevel" step="0.1" value="94"></div>
-    <div class="grp"><button id="calBtn">Calibrate</button><button id="calClr">Back to dBFS</button></div>
-    <p class="hint" id="calMsg">Put a 94 dB, 1 kHz calibrator on the mic, then press Calibrate.</p>
-  </div>
-  <div class="sec">
-    <h2>Display</h2>
+  </section>
+  <section class="sec" data-panel="display">
     <div class="fld rta-only"><label for="top">Top (dB)</label><input type="number" id="top" step="5" value="0"></div>
     <div class="fld rta-only"><label for="span">Range (dB)</label>
       <select id="span"><option value="40">40</option><option value="60">60</option><option value="80">80</option><option value="100">100</option><option value="120">120</option></select></div>
@@ -175,21 +297,57 @@ input[type=file]{max-width:100%;font-size:12px;color:var(--dim)}
       <select id="fpsCap"><option value="0">Display rate</option><option value="60">60 fps</option><option value="30">30 fps</option><option value="15">15 fps</option></select></div>
     <div class="fld"><label for="specOn">Spectrograph</label><input type="checkbox" id="specOn" checked></div>
     <p class="hint">Mouse wheel on the plot moves the top; Shift+wheel changes the range. In Transfer mode this applies to the magnitude pane.</p>
-  </div>
-  <div class="sec">
-    <h2>Signal generator</h2>
+  </section>
+  <section class="sec" data-panel="gen">
     <div class="fld"><label for="gen">Output</label>
       <select id="gen"><option value="0">Off</option><option value="1">Pink noise</option><option value="2">White noise</option><option value="3">Sine</option></select></div>
     <div class="fld"><label for="genF">Sine (Hz)</label><input type="number" id="genF" value="1000" min="20" max="20000" step="1"></div>
     <div class="fld"><label for="genL">Level <span id="genLv">-30 dBFS</span></label><input type="range" id="genL" min="-70" max="0" step="1" value="-30"></div>
     <p class="hint">Plays to your speakers. Start low.</p>
-  </div>
-  <div class="sec">
+  </section>
+  <section class="sec" data-panel="tools">
+    <div class="stack rta-only">
+      <h2>Target curve</h2>
+      <div class="fld"><label for="target">Overlay</label>
+        <select id="target"><option value="off">Off</option><option value="0">Flat (pink noise)</option><option value="-1.5">-1.5 dB/oct</option><option value="-3">-3 dB/oct</option><option value="-4.5">-4.5 dB/oct</option></select></div>
+      <p class="hint">The dashed line levels itself to your signal (100 Hz to 4 kHz), so you can see how far each band sits from the target shape.</p>
+    </div>
+    <div class="stack sep rta-only">
+      <h2>Feedback finder</h2>
+      <div class="fld"><label for="fbOn">Detect ringing</label><input type="checkbox" id="fbOn"></div>
+      <div id="fbList" class="fblist"></div>
+      <div class="grp"><button id="fbClear">Clear</button></div>
+      <p class="hint">Works best at 1/12 oct or finer with 0.5 to 2 s averaging.</p>
+    </div>
+    <div class="stack sep rta-only">
+      <h2>Markers</h2>
+      <p class="hint">Click the plot to pin a band (up to 4). Click it again to remove, Shift+click clears all.</p>
+      <div class="grp"><button id="pinClear">Clear pins</button></div>
+    </div>
+    <div class="stack sep">
+      <h2>SPL limit</h2>
+      <div class="fld"><label for="limitOn">Alarm</label><input type="checkbox" id="limitOn"></div>
+      <div class="fld"><label for="limit">Limit (dB)</label><input type="number" id="limit" step="1"></div>
+      <div class="fld"><label>Slow reading</label><span id="limState" class="mono">Off</span></div>
+      <p class="hint">Green is safe, yellow is within 3 dB of the limit, red is at or over it.</p>
+    </div>
+    <div class="stack sep">
+      <h2>Export &amp; screen</h2>
+      <div class="grp"><button id="expPng">Save PNG</button><button id="expCsv">Save CSV</button></div>
+      <div class="fld"><label for="wake" id="wakeLbl">Keep screen on</label><input type="checkbox" id="wake"></div>
+    </div>
+  </section>
+  <section class="sec" data-panel="cal">
+    <h2>SPL calibration</h2>
+    <div class="fld"><label for="offset">SPL offset (dB)</label><input type="number" id="offset" step="0.1" value="0"></div>
+    <div class="fld"><label for="calLevel">Calibrator (dB SPL)</label><input type="number" id="calLevel" step="0.1" value="94"></div>
+    <div class="grp"><button id="calBtn">Calibrate</button><button id="calClr">Back to dBFS</button></div>
+    <p class="hint" id="calMsg">Put a 94 dB, 1 kHz calibrator on the mic, then press Calibrate.</p>
     <h2>Mic correction</h2>
     <input type="file" id="compFile" accept=".txt,.csv,.cal,text/plain" aria-label="Mic calibration file">
     <div class="fld"><label for="compOn" id="compName">No file loaded</label><input type="checkbox" id="compOn" disabled></div>
     <p class="hint">Text file with frequency and dB columns. Applies to the spectrum, not the SPL meters.</p>
-  </div>
+  </section>
 </aside>
 </div>
 <script>
@@ -199,7 +357,9 @@ const G10 = Math.pow(10, 0.3);
 const RING = 1 << 18, MASK = RING - 1;
 const S = { res: 3, weight: 'Z', avg: '1', offset: 0, cal: false, top: 0, span: 100,
   style: 'auto', peakKey: '3', spec: true, fpsCap: 0, comp: false, ch: 0,
-  mode: 'rta', ref: 1, smooth: 24, cohB: 0, cohOn: true, tfMid: 0, tfHalf: 18 };
+  mode: 'rta', ref: 1, smooth: 24, cohB: 0, cohOn: true, tfMid: 0, tfHalf: 18,
+  theme: document.documentElement.dataset.theme || 'dark',
+  tfSplit: 0.36, sideW: 320, specH: 0, target: 'off', fbOn: false, limitOn: false, limit: 100, wake: false, tips: true, vu: true };
 const ring = new Float32Array(RING);   // measurement
 const ringR = new Float32Array(RING);  // reference
 let wpos = 0, fs = 48000;
@@ -407,7 +567,7 @@ function runCascade(cs, x) {
 function cascadeMag(cs, f) { let m = 1; for (const s of cs.secs) m *= secMag(s, f); return m; }
 
 let filtA, filtC;
-const meter = { fast: [0, 0, 0], slow: [0, 0, 0], leqS: [0, 0, 0], leqN: 0, peak: 0, inPeak: 0, refPeak: 0,
+const meter = { fast: [0, 0, 0], slow: [0, 0, 0], leqS: [0, 0, 0], leqN: 0, peak: 0, inPeak: 0, refPeak: 0, vuPk: 0,
   calS: 0, calN: 0, calOn: false, kF: 0, kS: 0 };
 
 function designFilters() {
@@ -441,6 +601,7 @@ function ingest(x, r) {
     const a = s < 0 ? -s : s;
     if (a > m.peak) m.peak = a;
     if (a > m.inPeak) m.inPeak = a;
+    if (a > m.vuPk) m.vuPk = a;
     const ya = runCascade(filtA, s), yc = runCascade(filtC, s);
     const q0 = s * s, q1 = ya * ya, q2 = yc * yc;
     m.fast[0] += m.kF * (q0 - m.fast[0]); m.fast[1] += m.kF * (q1 - m.fast[1]); m.fast[2] += m.kF * (q2 - m.fast[2]);
@@ -719,7 +880,7 @@ let ctx = null, capNode = null, capIn = null, mute = null, genBus = null, srcNod
 let demoNodes = [], running = false, frozen = false, mode = '', workletOK = false, fbGen = [], tracking = false;
 let genState = { t: 0, f: 1000, lvl: -30 };
 
-function setStatus(msg, cls) { const s = $('status'); s.textContent = msg; s.className = 'status' + (cls ? ' ' + cls : ''); }
+function setStatus(msg, cls) { const s = $('status'); s.textContent = msg; s.title = msg; s.className = 'status' + (cls ? ' ' + cls : ''); }
 const unit = () => (S.cal ? 'dB SPL' : 'dBFS');
 
 async function ensureCtx() {
@@ -937,12 +1098,37 @@ function onUnitChanged() {
   const w = S.weight; $('lF').textContent = 'L' + w + 'F'; $('lS').textContent = 'L' + w + 'S'; $('lE').firstChild.textContent = 'L' + w + 'eq';
   buildGrid();
 }
+let curTab = 'input';
+function setTab(t) {
+  const btns = [...document.querySelectorAll('.tabs button')];
+  const oi = btns.findIndex((b) => b.dataset.tab === curTab), ni = btns.findIndex((b) => b.dataset.tab === t);
+  const dir = ni >= oi ? 1 : -1;
+  curTab = t;
+  btns.forEach((b) => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+  document.querySelectorAll('[data-panel]').forEach((p) => {
+    const on = p.dataset.panel === t;
+    if (on && !p.classList.contains('active')) p.style.setProperty('--dir', dir);
+    p.classList.toggle('active', on);
+  });
+  placeInd(false);
+}
+let indFirst = true;
+function placeInd(instant) {
+  const b = document.querySelector('.tabs button.on'), ind = document.querySelector('.tabs .ind');
+  if (!b || !ind || !b.offsetWidth) return;
+  const snap = instant || indFirst;
+  if (snap) ind.style.transition = 'none';
+  ind.style.width = b.offsetWidth + 'px'; ind.style.transform = 'translateX(' + b.offsetLeft + 'px)';
+  if (snap) { void ind.offsetWidth; ind.style.transition = ''; indFirst = false; }
+}
+document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
 function applyMode() {
   const t = S.mode === 'tf';
   document.querySelectorAll('.rta-only').forEach((e) => { e.hidden = t; });
   document.querySelectorAll('.tf-only').forEach((e) => { e.hidden = !t; });
   document.querySelectorAll('input[name=mode]').forEach((r) => { r.checked = r.value === S.mode; });
   tfRebuild(); buildGrid();
+  setTab(t ? 'tf' : (curTab === 'tf' ? 'input' : curTab));
 }
 function setMode(m) { S.mode = m; save(); applyMode(); }
 function bind(id, key, parse, cb) {
@@ -989,6 +1175,7 @@ $('rstLeq').addEventListener('click', () => { resetMeter(); resetAvg(); tfReset(
 $('freeze').addEventListener('click', toggleFreeze);
 $('capture').addEventListener('click', captureTrace);
 $('fit').addEventListener('click', fitY);
+$('theme').addEventListener('click', toggleTheme);
 $('gen').addEventListener('change', async () => {
   genState.t = Number($('gen').value);
   if (genState.t && !(await ensureCtx())) return;
@@ -1007,6 +1194,9 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'Space') { e.preventDefault(); toggleFreeze(); }
   else if (k === 'c') captureTrace();
   else if (k === 'r') { resetMeter(); resetAvg(); tfReset(); }
+  else if (k === 'l') toggleTheme();
+  else if (k === 'f') toggleFullscreen();
+  else if (k === 'p') pins.length = 0;
   else if (k === 't') setMode(S.mode === 'tf' ? 'rta' : 'tf');
   else if (k === 'd' && S.mode === 'tf') doFind();
 });
@@ -1020,8 +1210,42 @@ const PL = { l: 52, t: 10, w: 100, h: 100 };
 const PH = { t: 0, h: 0 }, MG = { t: 0, h: 0 };   // transfer-function panes
 const MR = 14, MB = 24;
 let cssW = 300, cssH = 300, dpr = 1, barGrad = null, curX = null, specMap = new Int16Array(0), specRow = null;
-const COL = { live: '#5ad7f7', peak: '#f5b14c', grid: '#16202b', major: '#24313f', txt: '#8190a3', plotBg: '#0a0e13' };
-const TCOL = ['#b69cff', '#ff8fa3', '#8bd17c', '#f3dc7a'];
+const THEMES = {
+  dark: { live: '#5ad7f7', liveRGB: '90,215,247', peak: '#f5b14c', grid: '#16202b', major: '#24313f', txt: '#8190a3', plotBg: '#0a0e13',
+    frame: '#2d3a4a', label: '#66778c', cursor: 'rgba(216,224,234,0.45)', boxBg: 'rgba(20,26,34,0.94)', boxLine: '#3a4a5f',
+    fg: '#d8e0ea', sub: '#b8c4d4', cap: '#bff0ff', coh: 'rgba(255,107,107,0.55)', cohTxt: '#ff8f8f',
+    tcol: ['#b69cff', '#ff8fa3', '#8bd17c', '#f3dc7a'] },
+  light: { live: '#0b78a8', liveRGB: '11,120,168', peak: '#c27400', grid: '#e8edf2', major: '#d2dae3', txt: '#5b6878', plotBg: '#fbfcfd',
+    frame: '#b8c3d0', label: '#7a8797', cursor: 'rgba(23,32,43,0.45)', boxBg: 'rgba(255,255,255,0.95)', boxLine: '#b8c3d0',
+    fg: '#17202b', sub: '#4a5666', cap: '#064a6b', coh: 'rgba(214,48,49,0.6)', cohTxt: '#c0392b',
+    tcol: ['#7a4fe0', '#d6336c', '#2f9e44', '#c77d00'] }
+};
+const COL = {};
+let TCOL = THEMES.dark.tcol;
+function makeBarGrad() {
+  barGrad = pc.createLinearGradient(0, PL.t, 0, PL.t + PL.h);
+  barGrad.addColorStop(0, 'rgba(' + COL.liveRGB + ',0.88)'); barGrad.addColorStop(1, 'rgba(' + COL.liveRGB + ',0.22)');
+}
+function applyTheme(prev) {
+  const th = THEMES[S.theme] ? S.theme : 'dark';
+  S.theme = th;
+  document.documentElement.dataset.theme = th;
+  Object.assign(COL, THEMES[th]);
+  COL.tgt = th === 'dark' ? '#7bd88f' : '#1f8a3b'; COL.bad = th === 'dark' ? '#ff6b6b' : '#d63031';
+  COL.ok = th === 'dark' ? '#7bd88f' : '#1f8a3b'; COL.yel = th === 'dark' ? '#f2d04a' : '#c79a00'; COL.vuOff = th === 'dark' ? '#1a2531' : '#e3e9f0';
+  if (prev && prev !== th) {
+    traces.forEach((t) => { const k = THEMES[prev].tcol.indexOf(t.col); if (k >= 0) t.col = THEMES[th].tcol[k]; });
+    renderChips();
+  }
+  TCOL = THEMES[th].tcol;
+  const b = $('theme'), l = th === 'dark' ? 'Switch to light mode (L)' : 'Switch to dark mode (L)';
+  b.dataset.tip = l + '. Your choice is remembered.'; b.setAttribute('aria-label', l);
+  makeBarGrad(); buildGrid();
+}
+function toggleTheme() {
+  const p = S.theme; S.theme = p === 'dark' ? 'light' : 'dark'; save(); applyTheme(p);
+  const b = $('theme'); b.classList.remove('spin'); void b.offsetWidth; b.classList.add('spin');
+}
 const traces = [];
 
 const xOf = (f) => PL.l + PL.w * Math.log(f / FMIN) / LOGR;
@@ -1035,7 +1259,7 @@ const fmtDb = (v) => (v > -150 ? v.toFixed(1) : '-inf');
 
 function layoutPanes() {
   const gap = 14;
-  PH.t = PL.t; PH.h = Math.round((PL.h - gap) * 0.36);
+  PH.t = PL.t; PH.h = Math.round((PL.h - gap) * S.tfSplit);
   MG.t = PH.t + PH.h + gap; MG.h = PL.h - PH.h - gap;
 }
 
@@ -1046,11 +1270,11 @@ function resize() {
   PL.w = cssW - PL.l - MR; PL.h = cssH - PL.t - MB;
   layoutPanes();
   const sw = $('specwrap'); sw.style.paddingLeft = PL.l + 'px';
-  specEl.width = Math.max(10, Math.round(PL.w)); specEl.height = 150;
-  specEl.style.width = specEl.width + 'px'; specEl.style.height = '150px';
+  const sh = Math.max(40, sw.clientHeight);
+  specEl.width = Math.max(10, Math.round(PL.w)); specEl.height = sh;
+  specEl.style.width = specEl.width + 'px'; specEl.style.height = sh + 'px';
   sc.fillStyle = '#05070b'; sc.fillRect(0, 0, specEl.width, specEl.height);
-  barGrad = pc.createLinearGradient(0, PL.t, 0, PL.t + PL.h);
-  barGrad.addColorStop(0, 'rgba(90,215,247,0.88)'); barGrad.addColorStop(1, 'rgba(90,215,247,0.22)');
+  makeBarGrad();
   buildSpecMap(); buildGrid();
 }
 
@@ -1081,18 +1305,19 @@ function buildGrid() {
     for (let v = -180; v <= 180; v += 90) hGrid(g, yPh(v), v === 0, String(v));
     const hw = S.tfHalf, st = hw <= 12 ? 3 : (hw <= 24 ? 6 : 10), lo = S.tfMid - hw, hi = S.tfMid + hw;
     for (let v = Math.ceil(lo / st) * st; v <= hi + 1e-6; v += st) hGrid(g, yMg(v), v === 0, String(v));
-    g.strokeStyle = '#2d3a4a';
+    g.strokeStyle = COL.frame;
     g.strokeRect(PL.l + 0.5, PH.t + 0.5, PL.w - 1, PH.h - 1);
     g.strokeRect(PL.l + 0.5, MG.t + 0.5, PL.w - 1, MG.h - 1);
-    g.textAlign = 'left'; g.fillStyle = '#66778c';
+    const gy = (PH.t + PH.h + MG.t) / 2; g.fillStyle = COL.frame; g.fillRect(PL.l + PL.w / 2 - 18, gy - 1.5, 36, 3);
+    g.textAlign = 'left'; g.fillStyle = COL.label;
     g.fillText('Phase (deg)', PL.l + 8, PH.t + 11);
     g.fillText('Magnitude (dB) · 1/' + S.smooth + ' oct' + (S.cohOn ? ' · coherence (red, 0-100%)' : ''), PL.l + 8, MG.t + 11);
   } else {
     const step = S.span <= 50 ? 5 : (S.span <= 100 ? 10 : 20), lo = S.top - S.span;
     for (let v = Math.ceil(lo / step) * step; v <= S.top + 1e-6; v += step) hGrid(g, yOf(v), v % (step * 2) === 0, String(v));
-    g.textAlign = 'left'; g.fillStyle = '#66778c'; g.fillText(unit(), 6, 9);
+    g.textAlign = 'left'; g.fillStyle = COL.label; g.fillText(unit(), 6, 9);
     vGrid(g, PL.t, PL.h);
-    g.strokeStyle = '#2d3a4a'; g.strokeRect(PL.l + 0.5, PL.t + 0.5, PL.w - 1, PL.h - 1);
+    g.strokeStyle = COL.frame; g.strokeRect(PL.l + 0.5, PL.t + 0.5, PL.w - 1, PL.h - 1);
   }
   g.textAlign = 'center';
   const labels = { 20: '20', 50: '50', 100: '100', 200: '200', 500: '500', 1000: '1k', 2000: '2k', 5000: '5k', 10000: '10k', 20000: '20k' };
@@ -1155,7 +1380,7 @@ function drawTF(c) {
       const X = xOf(G.f[i]), Y = MG.t + MG.h * (1 - tf.coh[i]);
       if (pen) c.lineTo(X, Y); else { c.moveTo(X, Y); pen = true; }
     }
-    c.strokeStyle = 'rgba(255,107,107,0.55)'; c.lineWidth = 1; c.stroke();
+    c.strokeStyle = COL.coh; c.lineWidth = 1; c.stroke();
   }
   for (const t of traces) if (t.type === 'tf') tfLine(c, t.f, t.mag, yMg, t.coh, false, t.col, 1.3);
   if (live) tfLine(c, G.f, tf.mag, yMg, tf.coh, false, COL.live, 1.8);
@@ -1184,7 +1409,7 @@ function draw() {
       const x0 = xOf(BLO[j]), x1 = xOf(BHI[j]), gap = (x1 - x0) > 6 ? 1 : 0.5, y = yOf(vdb[j]);
       c.fillRect(x0 + gap, y, x1 - x0 - 2 * gap, base - y);
     }
-    c.fillStyle = '#bff0ff';
+    c.fillStyle = COL.cap;
     for (let j = 0; j < nB; j++) {
       if (vdb[j] < -150) continue;
       const x0 = xOf(BLO[j]), x1 = xOf(BHI[j]), gap = (x1 - x0) > 6 ? 1 : 0.5;
@@ -1203,7 +1428,7 @@ function draw() {
     if (n > 1) {
       c.beginPath(); strokeSmooth(c, XS, YS, n);
       c.lineTo(XS[n - 1], base); c.lineTo(XS[0], base); c.closePath();
-      c.fillStyle = 'rgba(90,215,247,0.14)'; c.fill();
+      c.fillStyle = `rgba(${COL.liveRGB},0.14)`; c.fill();
       c.beginPath(); strokeSmooth(c, XS, YS, n);
       c.strokeStyle = COL.live; c.lineWidth = 1.7; c.stroke();
     }
@@ -1212,6 +1437,7 @@ function draw() {
       c.beginPath(); strokeSmooth(c, XS, YS, n); c.strokeStyle = COL.peak; c.lineWidth = 1; c.globalAlpha = 0.9; c.stroke(); c.globalAlpha = 1;
     }
   }
+  drawOverlays(c);
   c.restore();
   if (cursorOn) drawCursor(c);
 }
@@ -1224,7 +1450,7 @@ function nearestBand(f) {
 
 function cursorLine(c) {
   const x = Math.round(curX) + 0.5;
-  c.strokeStyle = 'rgba(216,224,234,0.45)'; c.lineWidth = 1; c.setLineDash([4, 4]);
+  c.strokeStyle = COL.cursor; c.lineWidth = 1; c.setLineDash([4, 4]);
   c.beginPath(); c.moveTo(x, PL.t); c.lineTo(x, PL.t + PL.h); c.stroke(); c.setLineDash([]);
 }
 function drawBox(c, lines) {
@@ -1232,26 +1458,26 @@ function drawBox(c, lines) {
   let wd = 0; for (const l of lines) wd = Math.max(wd, c.measureText(l[0]).width); wd += 16;
   const ht = 10 + 14 * lines.length;
   let bx = curX + 12; if (bx + wd > PL.l + PL.w) bx = curX - 12 - wd;
-  c.fillStyle = 'rgba(20,26,34,0.94)'; c.strokeStyle = '#3a4a5f'; c.beginPath(); c.rect(bx, PL.t + 6, wd, ht); c.fill(); c.stroke();
+  c.fillStyle = COL.boxBg; c.strokeStyle = COL.boxLine; c.beginPath(); c.rect(bx, PL.t + 6, wd, ht); c.fill(); c.stroke();
   c.textAlign = 'left'; c.textBaseline = 'top';
   lines.forEach((l, i) => { c.fillStyle = l[1]; c.fillText(l[0], bx + 8, PL.t + 11 + 14 * i); });
 }
 function drawCursor(c) {
   const j = nearestBand(fOfX(curX));
   cursorLine(c);
-  const lines = [[fmtF(BFC[j]), '#d8e0ea'], [fmtDb(vdb[j]) + ' ' + unit(), COL.live]];
+  const lines = [[fmtF(BFC[j]), COL.fg], [fmtDb(vdb[j]) + ' ' + unit(), COL.live], [noteStr(fOfX(curX)), COL.sub]];
   if (S.peakKey !== 'off') lines.push(['peak ' + fmtDb(pkv[j]), COL.peak]);
   drawBox(c, lines);
 }
 function drawCursorTF(c) {
   const f = fOfX(curX);
   cursorLine(c);
-  const lines = [[fmtF(f), '#d8e0ea']];
+  const lines = [[fmtF(f), COL.fg], [noteStr(f), COL.sub]];
   if (tf.ready && tf.grid) {
     const i = clampN(Math.round(Math.log2(f / FMIN) * TF_PPO), 0, tf.grid.n - 1);
     lines.push([tf.mag[i] > -200 ? tf.mag[i].toFixed(1) + ' dB' : '-', COL.live]);
-    lines.push([isFinite(tf.ph[i]) ? tf.ph[i].toFixed(0) + ' deg' : '-', '#b8c4d4']);
-    lines.push(['coh ' + Math.round(tf.coh[i] * 100) + '%', '#ff8f8f']);
+    lines.push([isFinite(tf.ph[i]) ? tf.ph[i].toFixed(0) + ' deg' : '-', COL.sub]);
+    lines.push(['coh ' + Math.round(tf.coh[i] * 100) + '%', COL.cohTxt]);
   }
   drawBox(c, lines);
 }
@@ -1292,7 +1518,7 @@ function renderChips() {
   const el = $('chips'); el.innerHTML = '';
   traces.forEach((t) => {
     const b = document.createElement('button'); b.className = 'chip'; b.style.setProperty('--c', t.col);
-    b.innerHTML = '<i></i>' + t.name + ' &times;'; b.title = 'Remove ' + t.name;
+    b.innerHTML = '<i></i>' + t.name + ' &times;'; b.dataset.tip = 'Remove ' + t.name + ' from the plot';
     b.addEventListener('click', () => { traces.splice(traces.indexOf(t), 1); renderChips(); });
     el.appendChild(b);
   });
@@ -1330,7 +1556,11 @@ function fitY() {
 }
 
 // ----- pointer / wheel -----
-plotEl.addEventListener('pointermove', (e) => { curX = e.offsetX; });
+plotEl.addEventListener('pointermove', (e) => {
+  curX = e.offsetX;
+  if (tfDrag) { setTfSplit(e.offsetY); return; }
+  plotEl.style.cursor = (S.mode === 'tf' && nearTfGap(e.offsetY)) ? 'row-resize' : 'crosshair';
+});
 plotEl.addEventListener('pointerleave', () => { curX = null; });
 plotEl.addEventListener('wheel', (e) => {
   e.preventDefault();
@@ -1356,6 +1586,7 @@ function updateReadouts(now) {
   const db = (ms) => (ms > 1e-30 ? (10 * Math.log10(2 * ms) + off).toFixed(1) : '-inf');
   if (running) {
     $('vF').textContent = db(m.fast[i]); $('vS').textContent = db(m.slow[i]);
+    limitCheck(10 * Math.log10(2 * m.slow[i] + 1e-30) + off); fbUpdateUI();
     $('vE').textContent = m.leqN ? db(m.leqS[i] / m.leqN) : '-inf';
     $('vP').textContent = m.peak > 1e-9 ? (20 * Math.log10(m.peak) + off).toFixed(1) : '-inf';
     const ip = m.inPeak > 1e-9 ? 20 * Math.log10(m.inPeak) : -200; m.inPeak = 0;
@@ -1365,11 +1596,386 @@ function updateReadouts(now) {
     $('clip').classList.toggle('on', now < clipUntil);
     let bj = -1, bv = -150; for (let j = 0; j < nB; j++) if (vdb[j] > bv) { bv = vdb[j]; bj = j; }
     $('vPF').textContent = bj >= 0 ? fmtF(BFC[bj]) : '-';
+    $('vPN').textContent = (bj >= 0 && S.res >= 12) ? noteStr(BFC[bj], true) : '';
     const rp = m.refPeak > 1e-9 ? 20 * Math.log10(m.refPeak) : -200; m.refPeak = 0;
     refShown = Math.max(rp, refShown - 2.5);
     $('vRef').textContent = refShown > -100 ? refShown.toFixed(1) + ' dBFS' + (rp >= -0.1 ? ' CLIP' : '') : 'no signal';
   }
 }
+
+// ================= Extras: splitters, live-tuning tools, effects =================
+const NN = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+function noteStr(f, short) {
+  if (!(f > 0)) return '';
+  const n = 12 * Math.log2(f / 440) + 69, r = Math.round(n), c = Math.round((n - r) * 100);
+  const name = NN[((r % 12) + 12) % 12] + (Math.floor(r / 12) - 1);
+  return short ? name : name + ' ' + (c >= 0 ? '+' : '') + c + ' cents';
+}
+
+// ----- splitters -----
+const mainEl = document.querySelector('.main'), stageEl = document.querySelector('.stage');
+function setSideW(w) {
+  S.sideW = clampN(Math.round(w), 240, Math.max(260, Math.min(620, window.innerWidth * 0.6)));
+  mainEl.style.setProperty('--sidew', S.sideW + 'px');
+}
+function setSpecH(h) {
+  S.specH = h ? clampN(Math.round(h), 40, Math.max(60, stageEl.clientHeight * 0.6)) : 0;
+  if (S.specH) stageEl.style.setProperty('--spech', S.specH + 'px'); else stageEl.style.removeProperty('--spech');
+}
+function dragger(el, onMove, onReset, onKey) {
+  el.addEventListener('pointerdown', (e) => { el.setPointerCapture(e.pointerId); el.classList.add('drag'); document.body.classList.add('dragging'); e.preventDefault(); });
+  el.addEventListener('pointermove', (e) => { if (el.hasPointerCapture(e.pointerId)) onMove(e); });
+  const end = (e) => {
+    if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+    el.classList.remove('drag'); document.body.classList.remove('dragging'); save();
+  };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  el.addEventListener('dblclick', () => { onReset(); save(); });
+  el.addEventListener('keydown', (e) => {
+    const d = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
+    if (d) { e.preventDefault(); onKey(d * (e.shiftKey ? 40 : 10)); save(); }
+  });
+}
+dragger($('splitSide'), (e) => setSideW(mainEl.getBoundingClientRect().right - e.clientX - 6), () => setSideW(320), (d) => setSideW(S.sideW - d));
+dragger($('splitSpec'), (e) => setSpecH(stageEl.getBoundingClientRect().bottom - e.clientY - 3), () => setSpecH(0), (d) => setSpecH(($('specwrap').offsetHeight || 80) - d));
+setSideW(S.sideW); setSpecH(S.specH);
+
+// Transfer mode: drag the gap between the phase and magnitude panes
+let tfDrag = false;
+const nearTfGap = (y) => y > PH.t + PH.h - 6 && y < MG.t + 6;
+function setTfSplit(y) {
+  const gap = MG.t - (PH.t + PH.h);
+  S.tfSplit = clampN((y - PL.t - gap / 2) / (PL.h - gap), 0.15, 0.75);
+  layoutPanes(); buildGrid();
+}
+plotEl.addEventListener('pointerdown', (e) => {
+  if (S.mode === 'tf' && nearTfGap(e.offsetY)) { tfDrag = true; plotEl.setPointerCapture(e.pointerId); e.preventDefault(); }
+});
+const tfEnd = () => { if (tfDrag) { tfDrag = false; save(); } };
+plotEl.addEventListener('pointerup', tfEnd); plotEl.addEventListener('pointercancel', tfEnd);
+plotEl.addEventListener('dblclick', (e) => {
+  if (S.mode === 'tf' && nearTfGap(e.offsetY)) { S.tfSplit = 0.36; layoutPanes(); buildGrid(); save(); }
+});
+
+// ----- pinned markers (RTA) -----
+const pins = [];
+plotEl.addEventListener('click', (e) => {
+  if (S.mode !== 'rta' || e.offsetX < PL.l || e.offsetX > PL.l + PL.w) return;
+  if (e.shiftKey) { pins.length = 0; return; }
+  const f = BFC[nearestBand(fOfX(e.offsetX))], k = pins.findIndex((p) => Math.abs(Math.log(p / f)) < 1e-6);
+  if (k >= 0) pins.splice(k, 1); else { if (pins.length >= 4) pins.shift(); pins.push(f); }
+});
+$('pinClear').addEventListener('click', () => { pins.length = 0; });
+
+// ----- plot overlays: target curve, feedback flags, pins (called inside the plot clip) -----
+function drawOverlays(c) {
+  if (S.target !== 'off') {
+    const sl = parseFloat(S.target); let s = 0, n = 0;
+    for (let j = 0; j < nB; j++) {
+      const f = BFC[j]; if (f < 100 || f > 4000 || vdb[j] < -150) continue;
+      s += vdb[j] - sl * Math.log2(f / 1000); n++;
+    }
+    if (n) {
+      const ref = s / n;
+      c.save(); c.setLineDash([7, 5]); c.strokeStyle = COL.tgt; c.lineWidth = 1.5; c.beginPath();
+      c.moveTo(xOf(FMIN), yOf(ref + sl * Math.log2(FMIN / 1000)));
+      c.lineTo(xOf(FMAX), yOf(ref + sl * Math.log2(FMAX / 1000)));
+      c.stroke(); c.restore();
+    }
+  }
+  c.font = '11px ui-monospace,Menlo,Consolas,monospace'; c.textBaseline = 'top';
+  if (S.fbOn) {
+    for (const it of fb.list) {
+      const x = xOf(it.f), right = x > PL.l + PL.w - 70;
+      c.save(); c.strokeStyle = COL.bad; c.fillStyle = COL.bad; c.lineWidth = 1; c.setLineDash([3, 3]);
+      c.beginPath(); c.moveTo(x, PL.t); c.lineTo(x, PL.t + PL.h); c.stroke(); c.restore();
+      c.fillStyle = COL.bad; c.beginPath(); c.moveTo(x - 5, PL.t); c.lineTo(x + 5, PL.t); c.lineTo(x, PL.t + 8); c.closePath(); c.fill();
+      c.textAlign = right ? 'right' : 'left'; c.fillText(fmtF(it.f), x + (right ? -7 : 7), PL.t + 2);
+    }
+  }
+  pins.forEach((f, i) => {
+    const j = nearestBand(f), x = xOf(BFC[j]);
+    c.save(); c.strokeStyle = COL.fg; c.globalAlpha = 0.5; c.setLineDash([2, 4]);
+    c.beginPath(); c.moveTo(x, PL.t); c.lineTo(x, PL.t + PL.h); c.stroke(); c.restore();
+    const txt = fmtF(BFC[j]) + '  ' + fmtDb(vdb[j]), wd = c.measureText(txt).width + 10, y = PL.t + 24 + i * 18;
+    const bx = x + 6 + wd > PL.l + PL.w ? x - 6 - wd : x + 6;
+    c.fillStyle = COL.boxBg; c.strokeStyle = COL.boxLine; c.beginPath(); c.rect(bx, y, wd, 16); c.fill(); c.stroke();
+    c.fillStyle = COL.fg; c.textAlign = 'left'; c.fillText(txt, bx + 5, y + 3);
+  });
+}
+
+// ----- feedback finder -----
+const fb = { t: new Float64Array(0), p: new Float64Array(0), list: [] };
+function fbStep(dt) {
+  if (fb.t.length !== nB) { fb.t = new Float64Array(nB); fb.p = new Float64Array(nB); fb.list = []; }
+  let mx = -999; for (let j = 0; j < nB; j++) if (vdb[j] > mx) mx = vdb[j];
+  for (let j = 0; j < nB; j++) {
+    let p = 0;
+    if (S.res >= 6 && vdb[j] > -150 && vdb[j] > mx - 30) {
+      let s = 0, n = 0;
+      for (let d = 2; d <= 5; d++) {
+        if (j - d >= 0 && vdb[j - d] > -150) { s += vdb[j - d]; n++; }
+        if (j + d < nB && vdb[j + d] > -150) { s += vdb[j + d]; n++; }
+      }
+      if (n >= 4) p = vdb[j] - s / n;
+    }
+    if (p >= 8) fb.t[j] += dt; else fb.t[j] = Math.max(0, fb.t[j] - dt * 2);
+    fb.p[j] = p;
+  }
+  const L = [];
+  for (let j = 0; j < nB; j++) {
+    if (fb.t[j] < 0.8 || fb.p[j] < 8) continue;
+    if ((j > 0 && vdb[j - 1] > vdb[j]) || (j < nB - 1 && vdb[j + 1] > vdb[j])) continue;
+    L.push({ f: BFC[j], lvl: vdb[j], prom: fb.p[j] });
+  }
+  L.sort((a, b) => b.prom - a.prom); fb.list = L.slice(0, 3);
+}
+let fbSig = '';
+function fbUpdateUI() {
+  const el = $('fbList'); let html;
+  if (!S.fbOn) html = '<span class="hint">Off. Turn it on, then raise the gain: steady spikes that ring above their neighbours are flagged here.</span>';
+  else if (S.res < 6) html = '<span class="hint">Switch Res to 1/6 oct or finer.</span>';
+  else if (!fb.list.length) html = '<span class="hint">Listening. Nothing ringing right now.</span>';
+  else html = fb.list.map((it) => {
+    const cut = Math.round(clampN(it.prom - 3, 3, 12));
+    return '<div class="fbitem"><b>' + fmtF(it.f) + '</b><span>' + it.lvl.toFixed(1) + ' ' + unit() + '</span><em>Try a notch: -' + cut + ' dB, Q about 8.6</em></div>';
+  }).join('');
+  if (html !== fbSig) { fbSig = html; el.innerHTML = html; }
+}
+$('fbOn').checked = S.fbOn;
+$('fbOn').addEventListener('change', () => { S.fbOn = $('fbOn').checked; fb.list = []; fb.t.fill(0); save(); fbUpdateUI(); });
+$('fbClear').addEventListener('click', () => { fb.t.fill(0); fb.list = []; fbUpdateUI(); });
+fbUpdateUI();
+
+// ----- target + SPL limit -----
+bind('target', 'target', String);
+bind('limit', 'limit', Number);
+$('limitOn').checked = S.limitOn;
+$('limitOn').addEventListener('change', () => { S.limitOn = $('limitOn').checked; save(); if (!S.limitOn) limitCheck(-999); });
+function limitCheck(v) {
+  const tile = $('vS').closest('.tile'), st = $('limState');
+  tile.classList.remove('lim-ok', 'lim-warn', 'lim-over');
+  if (!S.limitOn || !isFinite(v)) { st.textContent = 'Off'; st.className = 'mono'; return; }
+  const head = S.limit - v, cls = head <= 0 ? 'over' : (head <= 3 ? 'warn' : 'ok');
+  tile.classList.add('lim-' + cls);
+  st.textContent = head <= 0 ? 'OVER by ' + (-head).toFixed(1) + ' dB' : head.toFixed(1) + ' dB headroom';
+  st.className = 'mono ' + (cls === 'over' ? 'bad' : cls);
+}
+
+// ----- export -----
+function stamp() { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds()); }
+function download(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+$('expPng').addEventListener('click', () => { plotEl.toBlob((b) => { if (b) download(b, 'analyzer-' + stamp() + '.png'); }); });
+$('expCsv').addEventListener('click', () => {
+  const rows = [];
+  if (S.mode === 'tf') {
+    if (!tf.ready || !tf.grid) return;
+    rows.push('freq_hz,mag_db,phase_deg,coherence');
+    for (let i = 0; i < tf.grid.n; i++) if (tf.mag[i] > -200) rows.push([tf.grid.f[i].toFixed(2), tf.mag[i].toFixed(2), isFinite(tf.ph[i]) ? tf.ph[i].toFixed(1) : '', tf.coh[i].toFixed(3)].join(','));
+  } else {
+    rows.push('freq_hz,level_' + unit().replace(' ', '_') + ',peak_hold');
+    for (let j = 0; j < nB; j++) if (vdb[j] > -150) rows.push(BFC[j].toFixed(2) + ',' + vdb[j].toFixed(2) + ',' + (pkv[j] > -150 ? pkv[j].toFixed(2) : ''));
+  }
+  if (rows.length < 2) return;
+  download(new Blob([rows.join('\n')], { type: 'text/csv' }), 'analyzer-' + S.mode + '-' + stamp() + '.csv');
+});
+
+// ----- keep screen on, fullscreen -----
+let wakeLock = null;
+async function applyWake() {
+  try {
+    if (S.wake && 'wakeLock' in navigator && document.visibilityState === 'visible') {
+      if (!wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
+    } else if (!S.wake && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch (e) {}
+}
+$('wake').checked = S.wake;
+$('wake').addEventListener('change', () => { S.wake = $('wake').checked; save(); applyWake(); });
+document.addEventListener('visibilitychange', applyWake);
+if (!('wakeLock' in navigator)) { $('wake').disabled = true; $('wake').closest('.fld').dataset.tip = 'Not supported in this browser'; }
+applyWake();
+function toggleFullscreen() {
+  try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); } catch (e) {}
+}
+$('fsBtn').addEventListener('click', toggleFullscreen);
+if (!document.documentElement.requestFullscreen) $('fsBtn').hidden = true;
+
+// ----- button ripple -----
+document.addEventListener('pointerdown', (e) => {
+  const b = e.target.closest && e.target.closest('button');
+  if (!b || b.disabled) return;
+  const r = b.getBoundingClientRect(), d = Math.max(r.width, r.height) * 2, s = document.createElement('span');
+  s.className = 'ripple'; s.style.width = s.style.height = d + 'px';
+  s.style.left = (e.clientX - r.left - d / 2) + 'px'; s.style.top = (e.clientY - r.top - d / 2) + 'px';
+  b.appendChild(s); setTimeout(() => s.remove(), 650);
+}, true);
+
+// ----- sliding tab indicator upkeep -----
+new ResizeObserver(() => placeInd(true)).observe(document.querySelector('.tabs'));
+window.addEventListener('load', () => placeInd(true));
+
+// ----- dBFS VU meter (RMS + peak with hold) -----
+const vuEl = $('vu'), vuc = vuEl.getContext('2d'), vuWrap = $('vuwrap');
+const vu = { pk: -200, hold: -200, holdT: 0, w: 0, h: 0, dpr: 1 };
+function vuSize() {
+  vu.dpr = Math.min(window.devicePixelRatio || 1, 2); vu.w = vuWrap.clientWidth; vu.h = vuWrap.clientHeight;
+  vuEl.width = Math.max(1, Math.round(vu.w * vu.dpr)); vuEl.height = Math.max(1, Math.round(vu.h * vu.dpr));
+}
+new ResizeObserver(vuSize).observe(vuWrap);
+function setVU(on) {
+  S.vu = on; vuWrap.hidden = !on; $('vuBtn').classList.toggle('on', on); $('vuBtn').setAttribute('aria-pressed', on ? 'true' : 'false'); save();
+}
+$('vuBtn').addEventListener('click', () => setVU(!S.vu));
+vuWrap.hidden = !S.vu; $('vuBtn').classList.toggle('on', S.vu);
+const vuColor = (db) => (db > -3 ? COL.bad : (db > -12 ? COL.yel : COL.ok));
+function drawVU(dt, now) {
+  if (!S.vu || vu.w < 120) return;
+  const c = vuc, m = meter;
+  c.setTransform(vu.dpr, 0, 0, vu.dpr, 0, 0); c.clearRect(0, 0, vu.w, vu.h);
+  const ms = m.fast[0], rms = running && ms > 1e-30 ? 10 * Math.log10(2 * ms) : -200;
+  const p = m.vuPk; m.vuPk = 0;
+  const pdb = running && p > 1e-9 ? 20 * Math.log10(p) : -200;
+  vu.pk = Math.max(pdb, vu.pk - 45 * dt);
+  if (pdb >= vu.hold || !running) { vu.hold = pdb; vu.holdT = now; }
+  else if (now - vu.holdT > 1.5) vu.hold = Math.max(vu.pk, vu.hold - 20 * dt);
+  const L = 40, R = 58, x0 = L, W = vu.w - L - R, n = Math.max(12, Math.floor(W / 6)), sw = W / n, h = 10;
+  const rows = [[3, rms], [15, vu.pk]];
+  rows.forEach(([y, lvl], r) => {
+    for (let k = 0; k < n; k++) {
+      const db = -60 + (k + 0.5) / n * 60;
+      c.fillStyle = db <= lvl ? vuColor(db) : COL.vuOff;
+      c.fillRect(x0 + k * sw, y, sw - 1, h);
+    }
+  });
+  const kh = Math.floor((vu.hold + 60) / 60 * n);
+  if (vu.hold > -150 && kh >= 0 && kh < n) { c.fillStyle = vuColor(vu.hold); c.fillRect(x0 + kh * sw, 15, sw - 1, h); }
+  c.font = '10px ui-monospace,Menlo,Consolas,monospace'; c.textBaseline = 'middle';
+  c.fillStyle = COL.txt; c.textAlign = 'left'; c.fillText('RMS', 6, 8); c.fillText('PEAK', 6, 20);
+  const fv = (v) => (v > -150 ? v.toFixed(1) : '-inf');
+  c.textAlign = 'right'; c.fillStyle = COL.fg; c.fillText(fv(rms), vu.w - 6, 8);
+  c.fillStyle = vu.hold > -1 ? COL.bad : COL.fg; c.fillText(fv(vu.hold), vu.w - 6, 20);
+  c.font = '9px ui-monospace,Menlo,Consolas,monospace'; c.fillStyle = COL.txt;
+  for (const db of [-60, -48, -36, -24, -12, -6, 0]) {
+    c.textAlign = db === -60 ? 'left' : (db === 0 ? 'right' : 'center');
+    c.fillText(String(db), x0 + (db + 60) / 60 * W, 33);
+  }
+}
+
+// ----- tips: hover explanations, switchable -----
+const tipEl = $('tip'), tipBtn = $('tipBtn');
+let tipT = 0, tipFor = null, tipLast = 0;
+function tip(sel, text, up) {
+  document.querySelectorAll(sel).forEach((el) => { const t = up ? (el.closest(up) || el) : el; if (!t.dataset.tip) t.dataset.tip = text; });
+}
+[
+  ['#fsBtn', 'Go fullscreen so the analyzer fills the whole screen. Shortcut: F.'],
+  ['#theme', 'Switch between light and dark theme. Shortcut: L.'],
+  ['.perf', 'Frames per second, time spent drawing each frame, and FFT processing time. If frame time gets high, lower the frame rate in Display.'],
+  ['#lF', 'Fast level: a 125 ms time constant with the chosen weighting. Reacts quickly, like the Fast setting on an SPL meter.', '.tile'],
+  ['#lS', 'Slow level: a 1 second time constant. Steadier, and the usual reading for venue limits.', '.tile'],
+  ['#lE', 'Leq: the average level since the last reset, so it summarises a whole song or set.', '.tile'],
+  ['#rstLeq', 'Reset Leq, peak, averages and the Transfer data.'],
+  ['#vP', 'Peak: the highest instant level since the last reset.', '.tile'],
+  ['#vPF', 'The band with the most energy right now. At 1/12 octave or finer the nearest musical note is shown beside it.', '.tile'],
+  ['#vIn', 'Input peak over the last moments. The lamp lights at full scale, which means clipping: turn the input gain down.', '.tile'],
+  ['#clip', 'Clip lamp: lights red when the input reaches full scale.'],
+  ['#vuwrap', 'dBFS level bars. RMS is the average level, PEAK is the loudest instant with a short hold. Green is safe, yellow is hot, red is within 3 dB of clipping.'],
+  ['input[name=mode]', 'RTA shows the live spectrum. Transfer compares the measurement with a reference to show frequency response and phase. Shortcut: T.', '.seg'],
+  ['#res', 'How finely the spectrum is divided. 1/3 octave matches a graphic EQ, finer settings show narrow peaks such as feedback.', '.grp'],
+  ['#smooth', 'Smoothing for the transfer curve. Smaller fractions show more detail, larger ones show the general trend.', '.grp'],
+  ['input[name=wt]', 'Weighting for the meters and spectrum. Z is flat, A follows how we hear at moderate levels, C is flatter and used for loud sound.', '.grp'],
+  ['#avg', 'How long readings are averaged. Longer is steadier but slower to react. Infinite keeps averaging until you reset.', '.grp'],
+  ['#peak', 'Peak-hold markers on each band so you can see the highest level reached. Off, timed, or held until reset.', '.grp'],
+  ['#freeze', 'Pause the display so you can inspect or capture a moment. Shortcut: Space.'],
+  ['#capture', 'Save the current trace as a coloured overlay, handy for comparing before and after an EQ change. Shortcut: C.'],
+  ['#fit', 'Automatically scale the vertical axis to fit the current signal.'],
+  ['#vuBtn', 'Show or hide the dBFS level bars.'],
+  ['[data-tab=input]', 'Pick the microphone, start or stop it, or try the demo signal.'],
+  ['[data-tab=tf]', 'Reference source, delay finder and coherence settings for Transfer mode.'],
+  ['[data-tab=display]', 'Axis range, trace style, frame rate and the spectrograph.'],
+  ['[data-tab=gen]', 'Built-in signal generator: pink noise, white noise and sine tones.'],
+  ['[data-tab=tools]', 'Feedback finder, target curve, markers, SPL limit and export.'],
+  ['[data-tab=cal]', 'Calibrate to real SPL and load a microphone correction file.'],
+  ['#device', 'Which audio input to use. Pick your measurement mic or audio interface here.', '.fld'],
+  ['#chan', 'Which input channel carries the measurement microphone.', '.fld'],
+  ['#mic', 'Start or stop the microphone. The browser asks for permission the first time.'],
+  ['#ctaMic', 'Start the microphone. The browser asks for permission the first time.'],
+  ['#demo', 'Run a built-in test signal through a fake system, so you can try every feature without a microphone.'],
+  ['#ctaDemo', 'Run a built-in test signal through a fake system, so you can try every feature without a microphone.'],
+  ['#refSrc', 'Where the reference signal comes from: a second input channel (a loopback of what you send to the PA) or the internal generator.', '.fld'],
+  ['#vRef', 'Level of the reference signal. It should be present and well below clipping.', '.fld'],
+  ['.dly', 'Delay applied to line up the measurement with the reference. Sound takes time to reach the mic, so this must match for a correct phase reading.'],
+  ['#dFind', 'Measure the delay automatically. Play pink noise first. Shortcut: D.'],
+  ['#dTrack', 'Keep re-measuring the delay once a second, useful if the signal path drifts.'],
+  ['#dM', 'Nudge the delay 0.1 ms earlier.'],
+  ['#dP', 'Nudge the delay 0.1 ms later.'],
+  ['#dZ', 'Set the delay back to zero.'],
+  ['#cohB', 'Hide transfer data where coherence is below this value. Low coherence means noise or reflections make the reading unreliable.', '.fld'],
+  ['#cohOn', 'Show the coherence curve. Near 100% means the measurement can be trusted.', '.fld'],
+  ['#top', 'Level at the top of the graph. The mouse wheel on the plot does the same.', '.fld'],
+  ['#span', 'How many dB the graph covers. Shift plus mouse wheel changes it.', '.fld'],
+  ['#style', 'Draw the spectrum as bars, a line, or choose automatically from the resolution.', '.fld'],
+  ['#fpsCap', 'Limit how often the screen is redrawn. Lower it on slower devices to save battery.', '.fld'],
+  ['#specOn', 'Show the spectrograph, a scrolling picture of the spectrum over time.', '.fld'],
+  ['#gen', 'Choose the test signal sent to your speakers. Start with a low level.', '.fld'],
+  ['#genF', 'Frequency of the sine tone.', '.fld'],
+  ['#genL', 'Output level of the generator. Start low to protect your speakers and ears.', '.fld'],
+  ['#target', 'Overlay a dashed target curve that levels itself to your signal, to see how far each band is from the shape you want.', '.fld'],
+  ['#fbOn', 'Watch for steady spikes that ring above their neighbours, a sign of feedback, and suggest where to notch.', '.fld'],
+  ['#fbClear', 'Forget the current feedback flags and start listening again.'],
+  ['#pinClear', 'Remove all pinned markers.'],
+  ['#limitOn', 'Turn on the SPL limit indicator. The Slow tile turns green when safe, yellow when near the limit and red when over.', '.fld'],
+  ['#limit', 'Your venue or noise limit. It is compared with the Slow reading using the chosen weighting.', '.fld'],
+  ['#limState', 'Headroom below the limit, or how far over it you are.', '.fld'],
+  ['#expPng', 'Save the current graph as an image.'],
+  ['#expCsv', 'Save the current curve as a CSV file for a spreadsheet.'],
+  ['#wake', 'Stop the screen from sleeping while you work. Not supported in every browser.', '.fld'],
+  ['#offset', 'Manual SPL offset in dB added to every reading. Calibrate fills this in for you.', '.fld'],
+  ['#calLevel', 'Level of your calibrator, usually 94 dB SPL at 1 kHz.', '.fld'],
+  ['#calBtn', 'Measure the calibrator for 3 seconds and set the SPL offset so readings show real dB SPL.'],
+  ['#calClr', 'Remove the calibration and show raw dBFS again.'],
+  ['#compFile', 'Load a text file of frequency and dB pairs that corrects your microphone response.'],
+  ['#compOn', 'Apply or bypass the loaded microphone correction.', '.fld']
+].forEach((a) => tip(a[0], a[1], a[2]));
+// move any native title text into the same system so tips can be switched off completely
+document.querySelectorAll('[title]').forEach((el) => { if (!el.dataset.tip) el.dataset.tip = el.title; el.removeAttribute('title'); });
+
+function tipShow(el) {
+  const txt = el.dataset.tip; if (!txt) return;
+  tipEl.textContent = txt; tipEl.hidden = false; tipEl.classList.remove('in');
+  tipEl.style.left = '0px'; tipEl.style.top = '0px';
+  const r = el.getBoundingClientRect(), tw = tipEl.offsetWidth, th = tipEl.offsetHeight;
+  const x = clampN(r.left + r.width / 2 - tw / 2, 8, window.innerWidth - tw - 8);
+  let y = r.bottom + 10, below = true;
+  if (y + th > window.innerHeight - 8) { y = Math.max(8, r.top - th - 10); below = false; }
+  tipEl.style.left = x + 'px'; tipEl.style.top = y + 'px'; tipEl.dataset.pos = below ? 'b' : 't';
+  void tipEl.offsetWidth; tipEl.classList.add('in'); tipLast = performance.now();
+}
+function tipHide() { clearTimeout(tipT); tipFor = null; tipEl.classList.remove('in'); tipEl.hidden = true; }
+document.addEventListener('pointerover', (e) => {
+  if (e.pointerType === 'touch') return;
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (el === tipFor) return;
+  tipHide();
+  if (!el || !(S.tips || el.dataset.tipAlways)) return;
+  tipFor = el;
+  tipT = setTimeout(() => tipShow(el), performance.now() - tipLast < 700 ? 60 : 380);
+});
+document.addEventListener('pointerdown', tipHide, true);
+document.addEventListener('wheel', tipHide, { passive: true });
+document.addEventListener('scroll', tipHide, true);
+document.addEventListener('keydown', tipHide);
+document.documentElement.addEventListener('pointerleave', tipHide);
+function syncTipBtn() {
+  tipBtn.classList.toggle('on', S.tips); tipBtn.setAttribute('aria-pressed', S.tips ? 'true' : 'false');
+  tipBtn.dataset.tipAlways = '1';
+  tipBtn.dataset.tip = S.tips ? 'Tips are on: hover any control to see what it does. Click to turn them off.' : 'Tips are off. Click to turn hover explanations back on.';
+}
+tipBtn.addEventListener('click', () => { S.tips = !S.tips; save(); syncTipBtn(); tipHide(); tipFor = tipBtn; tipShow(tipBtn); });
+syncTipBtn();
 
 // ----- main loop -----
 let lastDraw = 0, fpsT = 0, fpsN = 0, accFrame = 0, accDsp = 0, accN = 0;
@@ -1380,8 +1986,8 @@ function loop(t) {
   const t0 = performance.now(), now = t / 1000;
   if (running && !frozen) { runDSP(); if (S.mode === 'tf') runTF(); }
   const t1 = performance.now();
-  if (!frozen) { updateValues(dt, now); if (S.mode === 'tf') computeTF(dt); }
-  draw(); drawSpec(dt); updateReadouts(now);
+  if (!frozen) { updateValues(dt, now); if (S.mode === 'tf') computeTF(dt); else if (S.fbOn && running) fbStep(dt); }
+  draw(); drawSpec(dt); updateReadouts(now); drawVU(dt, now);
   const t2 = performance.now();
   accFrame += t2 - t0; accDsp += t1 - t0; accN++; fpsN++;
   if (t - fpsT >= 500) {
@@ -1393,7 +1999,7 @@ function loop(t) {
 
 // ----- start up -----
 rebuild(); designFilters(); onUnitChanged();
-applyMode(); updDelay();
+applyTheme(); applyMode(); updDelay();
 $('specwrap').hidden = !S.spec;
 $('genLv').textContent = genState.lvl + ' dBFS';
 new ResizeObserver(resize).observe(wrapEl);
