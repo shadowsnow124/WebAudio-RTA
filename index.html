@@ -74,7 +74,8 @@ button.icon svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-widt
 .chip{display:inline-flex;align-items:center;gap:6px;padding:0 8px;min-height:22px;font:11.5px var(--mono)}
 .chip i{width:9px;height:9px;border-radius:50%;background:var(--c)}
 .tile .lab .chip{min-height:0;padding:0 6px;font-size:10px;text-transform:none;letter-spacing:0}
-.plotwrap{position:relative;flex:1;min-height:140px;background:var(--plot);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.plotrow{flex:1;min-height:140px;min-width:0;display:flex;gap:6px}
+.plotwrap{position:relative;flex:1;min-width:0;min-height:140px;background:var(--plot);border:1px solid var(--line);border-radius:6px;overflow:hidden}
 #plot{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
 .cta{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:var(--overlay);text-align:center;padding:16px}
 .cta p{margin:0;max-width:44ch;color:var(--dim)}
@@ -107,7 +108,7 @@ input[type=file]{max-width:100%;font-size:12px;color:var(--dim)}
   html,body{height:auto;overflow:auto}
   body{height:auto;min-height:100dvh}
   .main{grid-template-columns:minmax(0,1fr)}
-  .plotwrap{flex:none;height:clamp(260px,45vh,520px)}
+  .plotrow{flex:none;height:clamp(260px,45vh,520px)}
   .specwrap{height:90px}
   .meters{grid-template-columns:repeat(3,minmax(0,1fr))}
   .perf{display:none}
@@ -188,6 +189,11 @@ body.dragging{user-select:none}
 .tip{position:fixed;z-index:1000;max-width:270px;padding:8px 11px;border-radius:7px;background:var(--panel2);color:var(--fg);border:1px solid var(--line2);box-shadow:0 8px 24px rgba(0,0,0,.35);font-size:12px;line-height:1.4;pointer-events:none;opacity:0;transform:translateY(4px) scale(.98);transition:opacity .15s var(--ease),transform .15s var(--ease)}
 .tip[data-pos="t"]{transform:translateY(-4px) scale(.98)}
 .tip.in{opacity:1;transform:none}
+input[type=color]{width:34px;height:28px;padding:2px;border:1px solid var(--line2);border-radius:5px;background:var(--panel2);cursor:pointer}
+.fld>label span{color:var(--faint);font-family:var(--mono);font-size:11px;margin-left:4px}
+.vuwrap{min-width:0}
+@keyframes blinkHard{0%{opacity:1}50%{opacity:0}}
+.flashpk .lamp.on{animation:blinkHard .3s steps(1,end) infinite}
 </style>
 </head>
 <body>
@@ -248,13 +254,13 @@ body.dragging{user-select:none}
     <button id="vuBtn" class="on" aria-pressed="true">VU</button>
   </div>
   <div class="chips" id="chips"></div>
-  <div class="plotwrap" id="plotwrap">
+  <div class="plotrow" id="plotrow"><div class="plotwrap" id="plotwrap">
     <canvas id="plot"></canvas>
     <div class="cta" id="cta">
       <div class="row"><button class="primary" id="ctaMic">Start microphone</button><button id="ctaDemo">Try demo signal</button></div>
       <p>Audio is analyzed on this device. Nothing is recorded or uploaded.</p>
     </div>
-  </div>
+  </div></div>
   <div class="hsplit" id="splitSpec" role="separator" aria-orientation="horizontal" aria-label="Resize spectrograph" tabindex="0" title="Drag to resize, double-click to reset"></div>
   <div class="specwrap" id="specwrap"><canvas id="spec"></canvas></div>
 </section>
@@ -297,6 +303,22 @@ body.dragging{user-select:none}
       <select id="fpsCap"><option value="0">Display rate</option><option value="60">60 fps</option><option value="30">30 fps</option><option value="15">15 fps</option></select></div>
     <div class="fld"><label for="specOn">Spectrograph</label><input type="checkbox" id="specOn" checked></div>
     <p class="hint">Mouse wheel on the plot moves the top; Shift+wheel changes the range. In Transfer mode this applies to the magnitude pane.</p>
+    <h2>VU meter</h2>
+    <div class="fld"><label for="vuOn">Show VU meter</label><input type="checkbox" id="vuOn"></div>
+    <div class="fld"><label for="vuPos">Position</label><select id="vuPos"><option value="top">Top (under meters)</option><option value="plot">Above the plot</option><option value="bottom">Bottom</option><option value="left">Left of plot (vertical)</option><option value="right">Right of plot (vertical)</option></select></div>
+    <div class="fld"><label for="vuLen">Length <span id="vuLenV"></span></label><input type="range" id="vuLen" min="20" max="100" step="5"></div>
+    <div class="fld"><label for="vuSize">Thickness <span id="vuSizeV"></span></label><input type="range" id="vuSize" min="30" max="120" step="2"></div>
+    <div class="fld"><label for="vuBar">Bar type</label><select id="vuBar"><option value="led">LED segments</option><option value="solid">Continuous</option></select></div>
+    <div class="fld"><label for="vuSeg">LED size</label><select id="vuSeg"><option value="4">Fine</option><option value="6">Medium</option><option value="10">Coarse</option><option value="16">Chunky</option></select></div>
+    <div class="fld"><label for="vuMode">Colour mode</label><select id="vuMode"><option value="zones">Zones (stepped)</option><option value="fade">Fade (gradient)</option><option value="single">Single colour</option></select></div>
+    <div class="fld"><label>Colours</label><div class="grp"><input type="color" id="vuC1" aria-label="Low colour"><input type="color" id="vuC2" aria-label="Mid colour"><input type="color" id="vuC3" aria-label="High colour"><button id="vuCRst">Reset</button></div></div>
+    <div class="fld"><label for="vuT2">Mid starts (dB)</label><input type="number" id="vuT2" step="1" min="-59" max="-2"></div>
+    <div class="fld"><label for="vuT3">High starts (dB)</label><input type="number" id="vuT3" step="1" min="-58" max="0"></div>
+    <div class="fld"><label for="vuUnlit">Unlit LEDs</label><select id="vuUnlit"><option value="plain">Plain</option><option value="tint">Tinted</option></select></div>
+    <div class="fld"><label for="vuGlow">Glow</label><input type="checkbox" id="vuGlow"></div>
+    <div class="fld"><label for="vuFlash">Flash peak LED</label><input type="checkbox" id="vuFlash"></div>
+    <div class="fld"><label for="vuFlashMs">Flash time <span id="vuFlashV"></span></label><input type="range" id="vuFlashMs" min="50" max="600" step="10"></div>
+    <p class="hint">Flash makes the PEAK row and the clip lamp snap on and off instead of fading smoothly. Left and right place the meter vertically.</p>
   </section>
   <section class="sec" data-panel="gen">
     <div class="fld"><label for="gen">Output</label>
@@ -326,15 +348,22 @@ body.dragging{user-select:none}
     </div>
     <div class="stack sep">
       <h2>SPL limit</h2>
-      <div class="fld"><label for="limitOn">Alarm</label><input type="checkbox" id="limitOn"></div>
-      <div class="fld"><label for="limit">Limit (dB)</label><input type="number" id="limit" step="1"></div>
+      <div class="fld"><label for="limitOn">Slow (LZS) alarm</label><input type="checkbox" id="limitOn"></div>
+      <div class="fld"><label for="limit">Slow limit (dB)</label><input type="number" id="limit" step="1"></div>
       <div class="fld"><label>Slow reading</label><span id="limState" class="mono">Off</span></div>
+      <div class="fld"><label for="limitFOn">Fast (LZF) alarm</label><input type="checkbox" id="limitFOn"></div>
+      <div class="fld"><label for="limitF">Fast limit (dB)</label><input type="number" id="limitF" step="1"></div>
+      <div class="fld"><label>Fast reading</label><span id="limStateF" class="mono">Off</span></div>
       <p class="hint">Green is safe, yellow is within 3 dB of the limit, red is at or over it.</p>
     </div>
     <div class="stack sep">
       <h2>Export &amp; screen</h2>
       <div class="grp"><button id="expPng">Save PNG</button><button id="expCsv">Save CSV</button></div>
       <div class="fld"><label for="wake" id="wakeLbl">Keep screen on</label><input type="checkbox" id="wake"></div>
+      <h2>Settings file</h2>
+      <div class="grp"><button id="setExp">Export</button><button id="setImp">Import</button><button id="setRst">Defaults</button></div>
+      <input type="file" id="setFile" accept=".json,application/json" hidden>
+      <p class="hint" id="setMsg">Export every setting to a JSON file and import it on another PC.</p>
     </div>
   </section>
   <section class="sec" data-panel="cal">
@@ -359,7 +388,9 @@ const S = { res: 3, weight: 'Z', avg: '1', offset: 0, cal: false, top: 0, span: 
   style: 'auto', peakKey: '3', spec: true, fpsCap: 0, comp: false, ch: 0,
   mode: 'rta', ref: 1, smooth: 24, cohB: 0, cohOn: true, tfMid: 0, tfHalf: 18,
   theme: document.documentElement.dataset.theme || 'dark',
-  tfSplit: 0.36, sideW: 320, specH: 0, target: 'off', fbOn: false, limitOn: false, limit: 100, wake: false, tips: true, vu: true };
+  tfSplit: 0.36, sideW: 320, specH: 0, target: 'off', fbOn: false, limitOn: false, limit: 100, limitFOn: false, limitF: 100, wake: false, tips: true,
+  vu: true, vuPos: 'top', vuLen: 100, vuSize: 40, vuBar: 'led', vuSeg: 6, vuMode: 'zones', vuC1: '', vuC2: '', vuC3: '',
+  vuT2: -12, vuT3: -3, vuUnlit: 'plain', vuGlow: false, vuFlash: false, vuFlashMs: 150 };
 const ring = new Float32Array(RING);   // measurement
 const ringR = new Float32Array(RING);  // reference
 let wpos = 0, fs = 48000;
@@ -873,6 +904,7 @@ function load() {
     for (const k in S) if (k in o && typeof o[k] === typeof S[k]) S[k] = o[k];
   } catch (e) {}
 }
+const DEFAULTS = JSON.stringify(S);
 load();
 S.comp = false;
 
@@ -1058,6 +1090,7 @@ function calibrate() {
 }
 
 // Mic correction file
+let compFileName = '';
 function loadComp(text, name) {
   const F = [], D = [];
   for (const line of text.split(/\r?\n/)) {
@@ -1069,7 +1102,7 @@ function loadComp(text, name) {
   const idx = F.map((_, i) => i).sort((a, b) => F[a] - F[b]);
   compCurve.f = idx.map((i) => F[i]); compCurve.d = idx.map((i) => D[i]);
   if (compCurve.f.length < 2) { $('compName').textContent = 'Could not read ' + name; $('compOn').disabled = true; $('compOn').checked = false; S.comp = false; return; }
-  $('compName').textContent = name + ' (' + compCurve.f.length + ' pts)';
+  compFileName = name; $('compName').textContent = name + ' (' + compCurve.f.length + ' pts)';
   $('compOn').disabled = false; $('compOn').checked = true; S.comp = true;
   rebuildWeights(); resetAvg();
 }
@@ -1240,7 +1273,7 @@ function applyTheme(prev) {
   TCOL = THEMES[th].tcol;
   const b = $('theme'), l = th === 'dark' ? 'Switch to light mode (L)' : 'Switch to dark mode (L)';
   b.dataset.tip = l + '. Your choice is remembered.'; b.setAttribute('aria-label', l);
-  makeBarGrad(); buildGrid();
+  makeBarGrad(); buildGrid(); syncVUColors();
 }
 function toggleTheme() {
   const p = S.theme; S.theme = p === 'dark' ? 'light' : 'dark'; save(); applyTheme(p);
@@ -1269,7 +1302,7 @@ function resize() {
   plotEl.width = Math.round(cssW * dpr); plotEl.height = Math.round(cssH * dpr);
   PL.w = cssW - PL.l - MR; PL.h = cssH - PL.t - MB;
   layoutPanes();
-  const sw = $('specwrap'); sw.style.paddingLeft = PL.l + 'px';
+  const sw = $('specwrap'); const lOff = Math.max(0, wrapEl.getBoundingClientRect().left - document.querySelector('.stage').getBoundingClientRect().left); sw.style.paddingLeft = (PL.l + lOff) + 'px';
   const sh = Math.max(40, sw.clientHeight);
   specEl.width = Math.max(10, Math.round(PL.w)); specEl.height = sh;
   specEl.style.width = specEl.width + 'px'; specEl.style.height = sh + 'px';
@@ -1586,7 +1619,7 @@ function updateReadouts(now) {
   const db = (ms) => (ms > 1e-30 ? (10 * Math.log10(2 * ms) + off).toFixed(1) : '-inf');
   if (running) {
     $('vF').textContent = db(m.fast[i]); $('vS').textContent = db(m.slow[i]);
-    limitCheck(10 * Math.log10(2 * m.slow[i] + 1e-30) + off); fbUpdateUI();
+    limitCheck(10 * Math.log10(2 * m.slow[i] + 1e-30) + off, 10 * Math.log10(2 * m.fast[i] + 1e-30) + off); fbUpdateUI();
     $('vE').textContent = m.leqN ? db(m.leqS[i] / m.leqN) : '-inf';
     $('vP').textContent = m.peak > 1e-9 ? (20 * Math.log10(m.peak) + off).toFixed(1) : '-inf';
     const ip = m.inPeak > 1e-9 ? 20 * Math.log10(m.inPeak) : -200; m.inPeak = 0;
@@ -1750,16 +1783,23 @@ fbUpdateUI();
 // ----- target + SPL limit -----
 bind('target', 'target', String);
 bind('limit', 'limit', Number);
-$('limitOn').checked = S.limitOn;
-$('limitOn').addEventListener('change', () => { S.limitOn = $('limitOn').checked; save(); if (!S.limitOn) limitCheck(-999); });
-function limitCheck(v) {
-  const tile = $('vS').closest('.tile'), st = $('limState');
+bind('limitF', 'limitF', Number);
+let lastLim = [-999, -999];
+$('limitOn').checked = S.limitOn; $('limitFOn').checked = S.limitFOn;
+$('limitOn').addEventListener('change', () => { S.limitOn = $('limitOn').checked; save(); limitCheck(lastLim[0], lastLim[1]); });
+$('limitFOn').addEventListener('change', () => { S.limitFOn = $('limitFOn').checked; save(); limitCheck(lastLim[0], lastLim[1]); });
+function limitOne(tile, st, on, lim, v) {
   tile.classList.remove('lim-ok', 'lim-warn', 'lim-over');
-  if (!S.limitOn || !isFinite(v)) { st.textContent = 'Off'; st.className = 'mono'; return; }
-  const head = S.limit - v, cls = head <= 0 ? 'over' : (head <= 3 ? 'warn' : 'ok');
+  if (!on || !isFinite(v) || v < -300) { st.textContent = on ? 'No reading' : 'Off'; st.className = 'mono'; return; }
+  const head = lim - v, cls = head <= 0 ? 'over' : (head <= 3 ? 'warn' : 'ok');
   tile.classList.add('lim-' + cls);
   st.textContent = head <= 0 ? 'OVER by ' + (-head).toFixed(1) + ' dB' : head.toFixed(1) + ' dB headroom';
   st.className = 'mono ' + (cls === 'over' ? 'bad' : cls);
+}
+function limitCheck(vs, vf) {
+  lastLim = [vs, vf];
+  limitOne($('vS').closest('.tile'), $('limState'), S.limitOn, S.limit, vs);
+  limitOne($('vF').closest('.tile'), $('limStateF'), S.limitFOn, S.limitF, vf);
 }
 
 // ----- export -----
@@ -1817,52 +1857,257 @@ document.addEventListener('pointerdown', (e) => {
 new ResizeObserver(() => placeInd(true)).observe(document.querySelector('.tabs'));
 window.addEventListener('load', () => placeInd(true));
 
-// ----- dBFS VU meter (RMS + peak with hold) -----
+// ----- dBFS VU meter (RMS + peak, LED or continuous, positionable) -----
 const vuEl = $('vu'), vuc = vuEl.getContext('2d'), vuWrap = $('vuwrap');
-const vu = { pk: -200, hold: -200, holdT: 0, w: 0, h: 0, dpr: 1 };
-function vuSize() {
+const vu = { pk: -200, hold: -200, holdT: 0, flashT: 0, w: 0, h: 0, dpr: 1 };
+function vuResize() {
   vu.dpr = Math.min(window.devicePixelRatio || 1, 2); vu.w = vuWrap.clientWidth; vu.h = vuWrap.clientHeight;
   vuEl.width = Math.max(1, Math.round(vu.w * vu.dpr)); vuEl.height = Math.max(1, Math.round(vu.h * vu.dpr));
 }
-new ResizeObserver(vuSize).observe(vuWrap);
-function setVU(on) {
-  S.vu = on; vuWrap.hidden = !on; $('vuBtn').classList.toggle('on', on); $('vuBtn').setAttribute('aria-pressed', on ? 'true' : 'false'); save();
+new ResizeObserver(vuResize).observe(vuWrap);
+const VUCTL = [['vuOn', 'vu'], ['vuPos', 'vuPos'], ['vuLen', 'vuLen'], ['vuSize', 'vuSize'], ['vuBar', 'vuBar'], ['vuSeg', 'vuSeg'],
+  ['vuMode', 'vuMode'], ['vuT2', 'vuT2'], ['vuT3', 'vuT3'], ['vuUnlit', 'vuUnlit'], ['vuGlow', 'vuGlow'], ['vuFlash', 'vuFlash'], ['vuFlashMs', 'vuFlashMs']];
+function vuCols() { return [S.vuC1 || COL.ok, S.vuC2 || COL.yel, S.vuC3 || COL.bad]; }
+function syncVUColors() { const c = vuCols(); ['vuC1', 'vuC2', 'vuC3'].forEach((id, i) => { $(id).value = c[i]; }); }
+function vuSync() {
+  for (const [id, k] of VUCTL) { const el = $(id); if (el.type === 'checkbox') el.checked = !!S[k]; else el.value = String(S[k]); }
+  $('vuLenV').textContent = S.vuLen + '%'; $('vuSizeV').textContent = S.vuSize + ' px'; $('vuFlashV').textContent = S.vuFlashMs + ' ms';
+  $('vuFlashMs').disabled = !S.vuFlash;
+  syncVUColors();
+  vuWrap.hidden = !S.vu; $('vuBtn').classList.toggle('on', S.vu); $('vuBtn').setAttribute('aria-pressed', S.vu ? 'true' : 'false');
+  document.body.classList.toggle('flashpk', !!S.vuFlash);
 }
+function placeVU() {
+  const pos = S.vuPos, vert = pos === 'left' || pos === 'right', row = $('plotrow'), st = document.querySelector('.stage');
+  if (vuWrap.dataset.pos !== pos) {
+    if (pos === 'left') row.insertBefore(vuWrap, wrapEl);
+    else if (pos === 'right') row.appendChild(vuWrap);
+    else if (pos === 'plot') st.insertBefore(vuWrap, row);
+    else if (pos === 'bottom') st.appendChild(vuWrap);
+    else st.insertBefore(vuWrap, document.querySelector('.bar'));
+    vuWrap.dataset.pos = pos;
+  }
+  if (vert) { vuWrap.style.width = S.vuSize + 'px'; vuWrap.style.height = S.vuLen + '%'; vuWrap.style.maxHeight = '100%'; }
+  else { vuWrap.style.height = S.vuSize + 'px'; vuWrap.style.width = S.vuLen + '%'; vuWrap.style.maxHeight = ''; }
+  vuWrap.style.alignSelf = 'center';
+}
+VUCTL.forEach(([id, k]) => {
+  const el = $(id), isNum = typeof S[k] === 'number', ev = el.type === 'range' ? 'input' : 'change';
+  el.addEventListener(ev, () => {
+    const v = el.type === 'checkbox' ? el.checked : (isNum ? Number(el.value) : el.value);
+    if (isNum && !isFinite(v)) return;
+    const moved = k === 'vuPos' && v !== S.vuPos;
+    S[k] = v; save(); vuSync(); placeVU(); if (moved) resize();
+  });
+});
+['vuC1', 'vuC2', 'vuC3'].forEach((id) => $(id).addEventListener('input', () => { S[id] = $(id).value; save(); }));
+$('vuCRst').addEventListener('click', () => { S.vuC1 = S.vuC2 = S.vuC3 = ''; save(); syncVUColors(); });
+function setVU(on) { S.vu = on; save(); vuSync(); }
 $('vuBtn').addEventListener('click', () => setVU(!S.vu));
-vuWrap.hidden = !S.vu; $('vuBtn').classList.toggle('on', S.vu);
-const vuColor = (db) => (db > -3 ? COL.bad : (db > -12 ? COL.yel : COL.ok));
+
+const hexCache = {};
+function rgbOf(h) {
+  let r = hexCache[h];
+  if (!r) { const m = /^#?([0-9a-f]{6})$/i.exec(h) || [0, '888888'], n = parseInt(m[1], 16); r = hexCache[h] = [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+  return r;
+}
+function mixHex(a, b, u) {
+  const A = rgbOf(a), B = rgbOf(b);
+  return 'rgb(' + Math.round(A[0] + (B[0] - A[0]) * u) + ',' + Math.round(A[1] + (B[1] - A[1]) * u) + ',' + Math.round(A[2] + (B[2] - A[2]) * u) + ')';
+}
+function vuTh() { const t2 = clampN(S.vuT2, -59, -2); return [t2, clampN(S.vuT3, t2 + 1, 0)]; }
+function vuColAt(db, C, T) {
+  if (S.vuMode === 'single') return C[0];
+  if (S.vuMode === 'fade') {
+    if (db <= -60) return C[0];
+    if (db < T[0]) return mixHex(C[0], C[1], (db + 60) / (T[0] + 60));
+    if (db < T[1]) return mixHex(C[1], C[2], (db - T[0]) / (T[1] - T[0]));
+    return C[2];
+  }
+  return db > T[1] ? C[2] : (db > T[0] ? C[1] : C[0]);
+}
+function vuStops(g, C, T) {
+  const p = (d) => clampN((d + 60) / 60, 0, 1), e = 0.002;
+  if (S.vuMode === 'single') { g.addColorStop(0, C[0]); g.addColorStop(1, C[0]); }
+  else if (S.vuMode === 'fade') { g.addColorStop(0, C[0]); g.addColorStop(p(T[0]), C[1]); g.addColorStop(p(T[1]), C[2]); g.addColorStop(1, C[2]); }
+  else {
+    g.addColorStop(0, C[0]); g.addColorStop(Math.max(0, p(T[0]) - e), C[0]); g.addColorStop(p(T[0]), C[1]);
+    g.addColorStop(Math.max(0, p(T[1]) - e), C[1]); g.addColorStop(p(T[1]), C[2]); g.addColorStop(1, C[2]);
+  }
+}
+// a0 = start of the axis (left x, or bottom y when vertical), L = length, p0/th = cross position and thickness, n = LED count (0 = continuous)
+function vuBar(c, vert, a0, L, p0, th, lvl, n, C, T) {
+  const tint = S.vuUnlit === 'tint', glow = S.vuGlow;
+  if (n) {
+    const sl = L / n;
+    for (let k = 0; k < n; k++) {
+      const db = -60 + (k + 0.5) / n * 60, on = db <= lvl, col = vuColAt(db, C, T);
+      const a = vert ? a0 - (k + 1) * sl : a0 + k * sl;
+      if (on) { c.fillStyle = col; if (glow) { c.shadowColor = col; c.shadowBlur = 6; } }
+      else if (tint) { c.fillStyle = col; c.globalAlpha = 0.16; }
+      else c.fillStyle = COL.vuOff;
+      if (vert) c.fillRect(p0, a + 1, th, sl - 1); else c.fillRect(a, p0, sl - 1, th);
+      c.shadowBlur = 0; c.globalAlpha = 1;
+    }
+    return;
+  }
+  const len = clampN((lvl + 60) / 60, 0, 1) * L;
+  const g = vert ? c.createLinearGradient(0, a0, 0, a0 - L) : c.createLinearGradient(a0, 0, a0 + L, 0);
+  vuStops(g, C, T);
+  if (tint) { c.globalAlpha = 0.16; c.fillStyle = g; } else c.fillStyle = COL.vuOff;
+  if (vert) c.fillRect(p0, a0 - L, th, L); else c.fillRect(a0, p0, L, th);
+  c.globalAlpha = 1;
+  if (len > 0.5) {
+    c.fillStyle = g;
+    if (glow) { c.shadowColor = vuColAt(clampN(lvl, -60, 0), C, T); c.shadowBlur = 6; }
+    if (vert) c.fillRect(p0, a0 - len, th, len); else c.fillRect(a0, p0, len, th);
+    c.shadowBlur = 0;
+  }
+}
+function vuHold(c, vert, a0, L, p0, th, n, hold, C, T) {
+  if (hold < -60) return;
+  const col = vuColAt(clampN(hold, -60, 0), C, T);
+  c.fillStyle = col;
+  if (S.vuGlow) { c.shadowColor = col; c.shadowBlur = 6; }
+  if (n) {
+    const k = Math.min(n - 1, Math.floor((hold + 60) / 60 * n)), sl = L / n, a = vert ? a0 - (k + 1) * sl : a0 + k * sl;
+    if (vert) c.fillRect(p0, a + 1, th, sl - 1); else c.fillRect(a, p0, sl - 1, th);
+  } else {
+    const pos = clampN((hold + 60) / 60, 0, 1) * L;
+    if (vert) c.fillRect(p0, a0 - pos - 1, th, 2); else c.fillRect(a0 + pos - 1, p0, 2, th);
+  }
+  c.shadowBlur = 0;
+}
 function drawVU(dt, now) {
-  if (!S.vu || vu.w < 120) return;
+  if (!S.vu) return;
+  const vert = S.vuPos === 'left' || S.vuPos === 'right';
+  if (vu.w < (vert ? 20 : 120) || vu.h < 20) return;
   const c = vuc, m = meter;
-  c.setTransform(vu.dpr, 0, 0, vu.dpr, 0, 0); c.clearRect(0, 0, vu.w, vu.h);
   const ms = m.fast[0], rms = running && ms > 1e-30 ? 10 * Math.log10(2 * ms) : -200;
   const p = m.vuPk; m.vuPk = 0;
   const pdb = running && p > 1e-9 ? 20 * Math.log10(p) : -200;
-  vu.pk = Math.max(pdb, vu.pk - 45 * dt);
+  if (S.vuFlash) {
+    if (pdb >= vu.pk) { vu.pk = pdb; vu.flashT = now; }
+    else if (now - vu.flashT > S.vuFlashMs / 1000) vu.pk = pdb;   // snaps off, no smooth fall
+  } else vu.pk = Math.max(pdb, vu.pk - 45 * dt);
   if (pdb >= vu.hold || !running) { vu.hold = pdb; vu.holdT = now; }
   else if (now - vu.holdT > 1.5) vu.hold = Math.max(vu.pk, vu.hold - 20 * dt);
-  const L = 40, R = 58, x0 = L, W = vu.w - L - R, n = Math.max(12, Math.floor(W / 6)), sw = W / n, h = 10;
-  const rows = [[3, rms], [15, vu.pk]];
-  rows.forEach(([y, lvl], r) => {
-    for (let k = 0; k < n; k++) {
-      const db = -60 + (k + 0.5) / n * 60;
-      c.fillStyle = db <= lvl ? vuColor(db) : COL.vuOff;
-      c.fillRect(x0 + k * sw, y, sw - 1, h);
+  const holdOn = vu.hold > -150 && (!S.vuFlash || (((now * 6) | 0) & 1) === 0);
+  const C = vuCols(), T = vuTh(), fv = (v, d) => (v > -150 ? v.toFixed(d) : '-inf');
+  c.setTransform(vu.dpr, 0, 0, vu.dpr, 0, 0); c.clearRect(0, 0, vu.w, vu.h);
+  c.textBaseline = 'middle';
+  if (!vert) {
+    const lab = 40, val = 58, W = vu.w - lab - val, scH = 12, bh = Math.max(5, Math.floor((vu.h - scH - 6) / 2)), y1 = 2, y2 = y1 + bh + 2;
+    const n = S.vuBar === 'solid' ? 0 : Math.max(12, Math.floor(W / S.vuSeg));
+    vuBar(c, false, lab, W, y1, bh, rms, n, C, T);
+    vuBar(c, false, lab, W, y2, bh, vu.pk, n, C, T);
+    if (holdOn) vuHold(c, false, lab, W, y2, bh, n, vu.hold, C, T);
+    c.font = '10px ui-monospace,Menlo,Consolas,monospace';
+    c.fillStyle = COL.txt; c.textAlign = 'left'; c.fillText('RMS', 6, y1 + bh / 2); c.fillText('PEAK', 6, y2 + bh / 2);
+    c.textAlign = 'right'; c.fillStyle = COL.fg; c.fillText(fv(rms, 1), vu.w - 6, y1 + bh / 2);
+    c.fillStyle = vu.hold > -1 ? COL.bad : COL.fg; c.fillText(fv(vu.hold, 1), vu.w - 6, y2 + bh / 2);
+    c.font = '9px ui-monospace,Menlo,Consolas,monospace'; c.fillStyle = COL.txt;
+    for (const db of [-60, -48, -36, -24, -12, -6, 0]) {
+      c.textAlign = db === -60 ? 'left' : (db === 0 ? 'right' : 'center');
+      c.fillText(String(db), lab + (db + 60) / 60 * W, y2 + bh + 8);
     }
-  });
-  const kh = Math.floor((vu.hold + 60) / 60 * n);
-  if (vu.hold > -150 && kh >= 0 && kh < n) { c.fillStyle = vuColor(vu.hold); c.fillRect(x0 + kh * sw, 15, sw - 1, h); }
-  c.font = '10px ui-monospace,Menlo,Consolas,monospace'; c.textBaseline = 'middle';
-  c.fillStyle = COL.txt; c.textAlign = 'left'; c.fillText('RMS', 6, 8); c.fillText('PEAK', 6, 20);
-  const fv = (v) => (v > -150 ? v.toFixed(1) : '-inf');
-  c.textAlign = 'right'; c.fillStyle = COL.fg; c.fillText(fv(rms), vu.w - 6, 8);
-  c.fillStyle = vu.hold > -1 ? COL.bad : COL.fg; c.fillText(fv(vu.hold), vu.w - 6, 20);
-  c.font = '9px ui-monospace,Menlo,Consolas,monospace'; c.fillStyle = COL.txt;
-  for (const db of [-60, -48, -36, -24, -12, -6, 0]) {
-    c.textAlign = db === -60 ? 'left' : (db === 0 ? 'right' : 'center');
-    c.fillText(String(db), x0 + (db + 60) / 60 * W, 33);
+    return;
+  }
+  const top = 14, bot = 14, L = vu.h - top - bot, scaleW = vu.w >= 72 ? 24 : 0, gap = 4;
+  if (L < 24) return;
+  const bw = Math.max(6, Math.floor((vu.w - scaleW - gap * 3) / 2)), xR = gap, xP = gap * 2 + bw, a0 = top + L;
+  const n = S.vuBar === 'solid' ? 0 : Math.max(12, Math.floor(L / S.vuSeg));
+  vuBar(c, true, a0, L, xR, bw, rms, n, C, T);
+  vuBar(c, true, a0, L, xP, bw, vu.pk, n, C, T);
+  if (holdOn) vuHold(c, true, a0, L, xP, bw, n, vu.hold, C, T);
+  c.font = '9px ui-monospace,Menlo,Consolas,monospace'; c.textAlign = 'center';
+  const d = bw < 28 ? 0 : 1;
+  c.fillStyle = COL.txt; c.fillText('RMS', xR + bw / 2, 7); c.fillText('PK', xP + bw / 2, 7);
+  c.fillStyle = COL.fg; c.fillText(fv(rms, d), xR + bw / 2, vu.h - 7);
+  c.fillStyle = vu.hold > -1 ? COL.bad : COL.fg; c.fillText(fv(vu.hold, d), xP + bw / 2, vu.h - 7);
+  if (scaleW) {
+    c.fillStyle = COL.txt; c.textAlign = 'left';
+    for (const db of [-60, -48, -36, -24, -12, -6, 0]) c.fillText(String(db), xP + bw + gap + 2, a0 - (db + 60) / 60 * L);
   }
 }
+
+// ----- settings file: export / import (JSON) -----
+const SETTINGS_APP = 'WebAudio-RTA';
+const SELKEY = { res: 'res', avg: 'avg', peakKey: 'peak', style: 'style', span: 'span', fpsCap: 'fpsCap', ch: 'chan', ref: 'refSrc', smooth: 'smooth',
+  target: 'target', vuPos: 'vuPos', vuBar: 'vuBar', vuSeg: 'vuSeg', vuMode: 'vuMode', vuUnlit: 'vuUnlit' };
+const RANGES = { vuLen: [20, 100], vuSize: [30, 120], vuFlashMs: [50, 600], cohB: [0, 0.9], tfSplit: [0.15, 0.75] };
+function exportSettings() {
+  const o = { app: SETTINGS_APP, version: 1, saved: new Date().toISOString(), settings: Object.assign({}, S),
+    generator: { freq: genState.f, level: genState.lvl } };
+  if (compCurve.f.length > 1) o.micCorrection = { name: compFileName || 'mic correction', enabled: !!S.comp, f: compCurve.f.slice(), d: compCurve.d.slice() };
+  download(new Blob([JSON.stringify(o, null, 2)], { type: 'application/json' }), 'webaudio-settings-' + stamp() + '.json');
+  $('setMsg').textContent = 'Exported ' + Object.keys(S).length + ' settings.';
+}
+function syncUI(prevTheme) {
+  [['res', 'res'], ['avg', 'avg'], ['peak', 'peakKey'], ['style', 'style'], ['top', 'top'], ['span', 'span'], ['fpsCap', 'fpsCap'], ['offset', 'offset'],
+    ['chan', 'ch'], ['refSrc', 'ref'], ['smooth', 'smooth'], ['target', 'target'], ['limit', 'limit'], ['limitF', 'limitF']].forEach((a) => { $(a[0]).value = String(S[a[1]]); });
+  document.querySelectorAll('input[name=wt]').forEach((r) => { r.checked = r.value === S.weight; });
+  $('cohB').value = S.cohB; $('cohV').textContent = Math.round(S.cohB * 100) + '%'; $('cohOn').checked = S.cohOn;
+  $('specOn').checked = S.spec; $('specwrap').hidden = !S.spec;
+  $('fbOn').checked = S.fbOn; $('limitOn').checked = S.limitOn; $('limitFOn').checked = S.limitFOn; $('wake').checked = S.wake;
+  rebuild(); resetAvg();
+  if (capNode && capNode.port) capNode.port.postMessage({ ch: S.ch, rch: S.ref });
+  setSideW(S.sideW); setSpecH(S.specH);
+  applyTheme(prevTheme); applyMode(); onBandsChanged(); onUnitChanged();
+  syncTipBtn(); vuSync(); placeVU(); resize();
+  fb.list = []; fbUpdateUI(); limitCheck(lastLim[0], lastLim[1]); applyWake(); save();
+}
+function applySettings(src, extra) {
+  extra = extra || {};
+  const prevTheme = S.theme; let n = 0;
+  for (const k in S) {
+    if (k === 'comp' || !(k in src) || typeof src[k] !== typeof S[k]) continue;
+    let v = src[k];
+    if (typeof v === 'number') { if (!isFinite(v)) continue; if (RANGES[k]) v = clampN(v, RANGES[k][0], RANGES[k][1]); }
+    if (SELKEY[k] && !Array.from($(SELKEY[k]).options).some((o) => o.value === String(v))) continue;
+    if ((k === 'theme' && v !== 'light' && v !== 'dark') || (k === 'mode' && v !== 'rta' && v !== 'tf') ||
+        (k === 'weight' && ['Z', 'A', 'C'].indexOf(v) < 0) || (k === 'tfHalf' && [6, 12, 18, 24, 30, 40, 60].indexOf(v) < 0)) continue;
+    if (/^vuC[123]$/.test(k) && v !== '' && !/^#[0-9a-f]{6}$/i.test(v)) continue;
+    S[k] = v; n++;
+  }
+  const mc = extra.mic, num = (x) => typeof x === 'number' && isFinite(x);
+  if (extra.reset) {
+    S.comp = false; compCurve.f = []; compCurve.d = []; compFileName = '';
+    $('compName').textContent = 'No file loaded'; $('compOn').disabled = true; $('compOn').checked = false;
+  } else if (mc && Array.isArray(mc.f) && Array.isArray(mc.d) && mc.f.length > 1 && mc.f.length === mc.d.length && mc.f.every(num) && mc.d.every(num)) {
+    compCurve.f = mc.f.slice(); compCurve.d = mc.d.slice(); compFileName = String(mc.name || 'imported');
+    S.comp = !!mc.enabled;
+    $('compName').textContent = compFileName + ' (' + compCurve.f.length + ' pts)'; $('compOn').disabled = false; $('compOn').checked = S.comp;
+  }
+  const g = extra.gen;   // only frequency and level are imported, never the output on/off state
+  if (g) {
+    if (num(g.freq)) { genState.f = clampN(g.freq, 20, 20000); $('genF').value = genState.f; }
+    if (num(g.level)) { genState.lvl = clampN(Math.round(g.level), -70, 0); $('genL').value = genState.lvl; $('genLv').textContent = genState.lvl + ' dBFS'; }
+    applyGen();
+  }
+  syncUI(prevTheme);
+  return n;
+}
+function importSettings(text) {
+  let o; try { o = JSON.parse(text); } catch (e) { return 'Import failed: not valid JSON.'; }
+  if (!o || typeof o !== 'object' || o.app !== SETTINGS_APP || !o.settings || typeof o.settings !== 'object') return 'Import failed: not a WebAudio settings file.';
+  const n = applySettings(o.settings, { mic: o.micCorrection, gen: o.generator });
+  return 'Imported ' + n + ' settings' + (typeof o.saved === 'string' ? ' (saved ' + o.saved.slice(0, 10) + ')' : '') + '.';
+}
+$('setExp').addEventListener('click', exportSettings);
+$('setImp').addEventListener('click', () => $('setFile').click());
+$('setFile').addEventListener('change', () => {
+  const f = $('setFile').files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { const msg = importSettings(String(r.result)); $('setMsg').textContent = msg; setStatus(msg, msg.indexOf('failed') >= 0 ? 'bad' : 'ok'); $('setFile').value = ''; };
+  r.readAsText(f);
+});
+$('setRst').addEventListener('click', () => {
+  if (!confirm('Reset all settings to their defaults?')) return;
+  const d = JSON.parse(DEFAULTS); delete d.theme;
+  applySettings(d, { reset: true, gen: { freq: 1000, level: -30 } });
+  $('setMsg').textContent = 'Defaults restored.';
+});
 
 // ----- tips: hover explanations, switchable -----
 const tipEl = $('tip'), tipBtn = $('tipBtn');
@@ -1927,8 +2172,8 @@ function tip(sel, text, up) {
   ['#fbOn', 'Watch for steady spikes that ring above their neighbours, a sign of feedback, and suggest where to notch.', '.fld'],
   ['#fbClear', 'Forget the current feedback flags and start listening again.'],
   ['#pinClear', 'Remove all pinned markers.'],
-  ['#limitOn', 'Turn on the SPL limit indicator. The Slow tile turns green when safe, yellow when near the limit and red when over.', '.fld'],
-  ['#limit', 'Your venue or noise limit. It is compared with the Slow reading using the chosen weighting.', '.fld'],
+  ['#limitOn', 'Turn on the alarm for the Slow (LZS) tile. Green is safe, yellow is within 3 dB of the limit, red is at or over it.', '.fld'],
+  ['#limit', 'Limit for the Slow reading, compared using the chosen weighting.', '.fld'],
   ['#limState', 'Headroom below the limit, or how far over it you are.', '.fld'],
   ['#expPng', 'Save the current graph as an image.'],
   ['#expCsv', 'Save the current curve as a CSV file for a spreadsheet.'],
@@ -1938,7 +2183,28 @@ function tip(sel, text, up) {
   ['#calBtn', 'Measure the calibrator for 3 seconds and set the SPL offset so readings show real dB SPL.'],
   ['#calClr', 'Remove the calibration and show raw dBFS again.'],
   ['#compFile', 'Load a text file of frequency and dB pairs that corrects your microphone response.'],
-  ['#compOn', 'Apply or bypass the loaded microphone correction.', '.fld']
+  ['#compOn', 'Apply or bypass the loaded microphone correction.', '.fld'],
+  ['#limitFOn', 'Turn on a separate alarm for the Fast (LZF) tile. It works independently of the Slow alarm.', '.fld'],
+  ['#limitF', 'Limit for the Fast reading. Fast reacts quickly, so it is useful for catching short peaks.', '.fld'],
+  ['#limStateF', 'Headroom of the Fast reading below its limit, or how far over it is.', '.fld'],
+  ['#vuOn', 'Show or hide the VU meter.', '.fld'],
+  ['#vuPos', 'Where the VU meter is shown. Left and right make it vertical.', '.fld'],
+  ['#vuLen', 'How long the VU meter is, as a percentage of the available space.', '.fld'],
+  ['#vuSize', 'Thickness of the VU meter in pixels.', '.fld'],
+  ['#vuBar', 'Draw the bars as separate LEDs or as one continuous bar.', '.fld'],
+  ['#vuSeg', 'Size of each LED segment.', '.fld'],
+  ['#vuMode', 'Zones changes colour in steps, Fade blends smoothly between colours, Single uses only the low colour.', '.fld'],
+  ['#vuC1', 'Low level colour.'], ['#vuC2', 'Mid level colour.'], ['#vuC3', 'High level colour.'],
+  ['#vuCRst', 'Go back to the theme colours.'],
+  ['#vuT2', 'Level where the mid colour starts.', '.fld'],
+  ['#vuT3', 'Level where the high colour starts.', '.fld'],
+  ['#vuUnlit', 'Show unlit LEDs as plain dark cells, or as a faint tint of their own colour.', '.fld'],
+  ['#vuGlow', 'Add a soft glow to lit LEDs.', '.fld'],
+  ['#vuFlash', 'Make the PEAK row and the clip lamp flash on and off instead of fading smoothly.', '.fld'],
+  ['#vuFlashMs', 'How long a peak stays lit before it snaps off.', '.fld'],
+  ['#setExp', 'Download all settings as a JSON file.'],
+  ['#setImp', 'Load settings from a JSON file exported earlier, for example from another PC.'],
+  ['#setRst', 'Restore every setting to its default.']
 ].forEach((a) => tip(a[0], a[1], a[2]));
 // move any native title text into the same system so tips can be switched off completely
 document.querySelectorAll('[title]').forEach((el) => { if (!el.dataset.tip) el.dataset.tip = el.title; el.removeAttribute('title'); });
@@ -1999,7 +2265,7 @@ function loop(t) {
 
 // ----- start up -----
 rebuild(); designFilters(); onUnitChanged();
-applyTheme(); applyMode(); updDelay();
+applyTheme(); applyMode(); updDelay(); vuSync(); placeVU();
 $('specwrap').hidden = !S.spec;
 $('genLv').textContent = genState.lvl + ' dBFS';
 new ResizeObserver(resize).observe(wrapEl);
