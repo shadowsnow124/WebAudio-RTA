@@ -13,6 +13,10 @@ Built for live sound. Good for installs and system tuning too.
 ![Web Audio](https://img.shields.io/badge/built%20with-Web%20Audio%20API-orange)
 ![Privacy](https://img.shields.io/badge/audio-stays%20on%20your%20device-informational)
 
+### [▶ Open the app](https://shadowsnow124.github.io/WebAudio-RTA/)
+
+<sub>No install, no sign-up. Works in Chrome or Edge on desktop, tablet and phone.</sub>
+
 <img src="img/screenshots/rta-dark.png" alt="WebAudio-RTA main view: variable-resolution RTA with a Live music target curve and ±3 dB tolerance band" width="100%">
 
 </div>
@@ -42,7 +46,7 @@ Built for live sound. Good for installs and system tuning too.
 
 WebAudio-RTA is a free, browser-based measurement tool for audio engineers, a lightweight alternative to tools like Smaart, made for gigs.
 
-- **No install.** It's a single `index.html` with no libraries, no build step and no server code.
+- **No install.** Open **[shadowsnow124.github.io/WebAudio-RTA](https://shadowsnow124.github.io/WebAudio-RTA/)** and go. Under the hood it's a single `index.html` with no libraries, no build step and no server code.
 - **Live sound first.** Read the room, chase feedback, watch SPL limits and check the PA during a show.
 - **Tuning too.** A dual-channel transfer function with phase, coherence and delay finding for system alignment and installs.
 - **Private.** Audio is analyzed on your device. Nothing is recorded or uploaded.
@@ -112,7 +116,13 @@ WebAudio-RTA is a free, browser-based measurement tool for audio engineers, a li
 
 ## Quick start
 
-### 1. Run it locally
+### 1. Use it online (easiest)
+Open **[https://shadowsnow124.github.io/WebAudio-RTA/](https://shadowsnow124.github.io/WebAudio-RTA/)** in Chrome or Edge, click **Start microphone** and allow access.
+
+It's served over HTTPS, so the mic works straight away. Nothing to download.
+
+### 2. Run it locally
+Handy for working on the code, or as a backup when there's no internet at the venue.
 ```bash
 git clone https://github.com/shadowsnow124/WebAudio-RTA.git
 cd WebAudio-RTA
@@ -122,10 +132,10 @@ Open **http://localhost:8000** in Chrome or Edge.
 
 > **Why a local server?** Browsers only give websites the microphone on **HTTPS** or **localhost**. Double-clicking `index.html` opens it, and the demo signal works, but the mic may be blocked.
 
-### 2. Or host it
-Put `index.html` and the `img/` folder on any HTTPS static host: GitHub Pages (Settings → Pages → deploy from `main`), Netlify, Cloudflare Pages, etc.
+### 3. Host your own copy
+Fork the repo and turn on GitHub Pages (**Settings → Pages → Deploy from branch → `main` / root**). Your copy appears at `https://<your-username>.github.io/WebAudio-RTA/`. Any HTTPS static host works too (Netlify, Cloudflare Pages, …): just upload `index.html` and the `img/` folder.
 
-### 3. First run
+### First run
 1. Click **Start microphone** and allow access, or click **Try demo signal**.
 2. **Input** tab: choose your audio interface and the channel your measurement mic is on.
 3. **Calibrate** tab: put a calibrator on the mic and press **Calibrate** to read real dB SPL.
@@ -275,7 +285,7 @@ No frameworks, no dependencies, no network calls.
 |---|---|
 | **Best** | Recent **Chrome** or **Edge** on desktop |
 | **Should work** | Other modern browsers with AudioWorklet support (less tested) |
-| **Needs** | HTTPS or localhost for microphone access |
+| **Needs** | HTTPS or localhost for microphone access (the online version is HTTPS) |
 | **Inputs** | The first two channels of an interface are used (measurement + reference) |
 | **Accuracy** | Depends on your mic and interface; use a measurement mic and calibrate for SPL work |
 
@@ -284,7 +294,10 @@ No frameworks, no dependencies, no network calls.
 ## Troubleshooting / FAQ
 
 **The mic won't start / "Microphone access needs HTTPS or localhost".**
-Serve the folder with `python -m http.server` and open `http://localhost:8000`, or host it on HTTPS. The demo signal works anywhere.
+Use the [online version](https://shadowsnow124.github.io/WebAudio-RTA/), or serve the folder with `python -m http.server` and open `http://localhost:8000`. Also check that the browser has mic permission (the lock / site-settings icon in the address bar). The demo signal works anywhere.
+
+**The online version still shows an old version after an update.**
+GitHub Pages can take a minute or two to update after a push. Then hard-refresh with **Ctrl+F5**.
 
 **I only see one input channel.**
 Some interfaces show up as stereo only in certain modes. Check the OS sound settings for the interface's channel count. The browser asks for 2 channels.
@@ -295,7 +308,7 @@ Increase **Avg**, or use **Variable** resolution, which uses wide bands at low f
 **Phase looks like a barcode in Transfer mode.**
 The reference and measurement aren't time-aligned. Press **Find delay** (`D`) with pink noise playing.
 
-**My changes don't show after updating the file.**
+**My local changes don't show.**
 Hard-refresh the tab with **Ctrl+F5**. An open tab keeps the old version.
 
 **Readings are different from my SPL meter.**
@@ -332,7 +345,7 @@ Ideas for future versions:
 Issues and pull requests are welcome.
 
 1. Fork the repo and create a branch.
-2. The whole app is `index.html`. Edit it and test in Chrome/Edge with both the **demo signal** and a real mic.
+2. The whole app is `index.html`. Edit it, run it locally (`python -m http.server`) and test in Chrome/Edge with both the **demo signal** and a real mic.
 3. Keep it dependency-free and single-file.
 4. Open a pull request describing what changed and how you tested it.
 
@@ -347,5 +360,5 @@ Bug reports are most useful with your browser, OS, audio interface and a screens
 ---
 
 <div align="center">
-<sub>Made for live sound by <a href="https://github.com/shadowsnow124">shadowsnow124</a>. Measurement tools help your ears; they don't replace them.</sub>
+<sub><a href="https://shadowsnow124.github.io/WebAudio-RTA/">Open the app</a> · Made for live sound by <a href="https://github.com/shadowsnow124">shadowsnow124</a>. Measurement tools help your ears; they don't replace them.</sub>
 </div>
