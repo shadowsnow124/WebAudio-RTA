@@ -228,6 +228,7 @@ input[type=color]{width:34px;height:28px;padding:2px;border:1px solid var(--line
       <select id="res" aria-label="Resolution">
         <option value="1">1/1 oct</option><option value="3">1/3 oct</option><option value="6">1/6 oct</option>
         <option value="12">1/12 oct</option><option value="24">1/24 oct</option><option value="48">1/48 oct</option>
+        <option value="0">Variable</option>
       </select></div>
     <div class="grp tf-only"><span>Smooth</span>
       <select id="smooth" aria-label="Smoothing">
@@ -237,6 +238,10 @@ input[type=color]{width:34px;height:28px;padding:2px;border:1px solid var(--line
     <div class="grp rta-only"><span>Weight</span>
       <div class="seg" role="radiogroup" aria-label="Weighting">
         <label><input type="radio" name="wt" value="Z">Z</label><label><input type="radio" name="wt" value="A">A</label><label><input type="radio" name="wt" value="C">C</label>
+      </div></div>
+    <div class="grp"><span>Axis</span>
+      <div class="seg" role="radiogroup" aria-label="Frequency axis">
+        <label><input type="radio" name="xs" value="log">Log</label><label><input type="radio" name="xs" value="lin">Lin</label>
       </div></div>
     <div class="grp"><span>Avg</span>
       <select id="avg" aria-label="Averaging">
@@ -328,11 +333,31 @@ input[type=color]{width:34px;height:28px;padding:2px;border:1px solid var(--line
     <p class="hint">Plays to your speakers. Start low.</p>
   </section>
   <section class="sec" data-panel="tools">
-    <div class="stack rta-only">
+    <div class="stack">
       <h2>Target curve</h2>
       <div class="fld"><label for="target">Overlay</label>
-        <select id="target"><option value="off">Off</option><option value="0">Flat (pink noise)</option><option value="-1.5">-1.5 dB/oct</option><option value="-3">-3 dB/oct</option><option value="-4.5">-4.5 dB/oct</option></select></div>
-      <p class="hint">The dashed line levels itself to your signal (100 Hz to 4 kHz), so you can see how far each band sits from the target shape.</p>
+        <select id="target"><option value="off">Off</option>
+          <optgroup label="Presets">
+            <option value="0">Flat</option>
+            <option value="live">Live music</option>
+            <option value="rock">Rock / loud live</option>
+            <option value="club">Club / EDM / hip-hop</option>
+            <option value="speech">Speech / corporate</option>
+            <option value="studio">Studio / hi-fi room</option>
+            <option value="xcurve">Cinema X-curve</option>
+          </optgroup>
+          <optgroup label="Slopes">
+            <option value="-1.5">-1.5 dB/oct</option><option value="-3">-3 dB/oct</option><option value="-4.5">-4.5 dB/oct</option>
+          </optgroup>
+          <option value="custom">Custom (from file)</option>
+        </select></div>
+      <div class="fld"><label for="tgtTol">Tolerance</label>
+        <select id="tgtTol"><option value="0">Off</option><option value="1.5">&plusmn;1.5 dB</option><option value="3">&plusmn;3 dB</option><option value="6">&plusmn;6 dB</option></select></div>
+      <div class="stack" id="tgtCustomBox" hidden>
+        <input type="file" id="tgtFile" accept=".txt,.csv,.cal,.json,text/plain" aria-label="Custom target curve file">
+        <span id="tgtName" class="mono hint">No curve loaded</span>
+      </div>
+      <p class="hint">The dashed line levels itself to your signal (100 Hz to 4 kHz), so you see how far each band sits from the shape. Works in RTA (use pink noise) and on the Transfer magnitude. Presets are starting points; adjust to the room, the band and your taste.</p>
     </div>
     <div class="stack sep rta-only">
       <h2>Feedback finder</h2>
@@ -390,7 +415,8 @@ const S = { res: 3, weight: 'Z', avg: '1', offset: 0, cal: false, top: 0, span: 
   theme: document.documentElement.dataset.theme || 'dark',
   tfSplit: 0.36, sideW: 320, specH: 0, target: 'off', fbOn: false, limitOn: false, limit: 100, limitFOn: false, limitF: 100, wake: false, tips: true,
   vu: true, vuPos: 'top', vuLen: 100, vuSize: 40, vuBar: 'led', vuSeg: 6, vuMode: 'zones', vuC1: '', vuC2: '', vuC3: '',
-  vuT2: -12, vuT3: -3, vuUnlit: 'plain', vuGlow: false, vuFlash: false, vuFlashMs: 150 };
+  vuT2: -12, vuT3: -3, vuUnlit: 'plain', vuGlow: false, vuFlash: false, vuFlashMs: 150, xScale: 'log',
+  tgtTol: 0, tgtName: '', tgtF: [], tgtD: [] };
 const ring = new Float32Array(RING);   // measurement
 const ringR = new Float32Array(RING);  // reference
 let wpos = 0, fs = 48000;
@@ -489,14 +515,31 @@ function rebuildWeights() {
   }
 }
 
+// Variable resolution: 1/1 oct at 20 Hz, narrowing smoothly to 1/24 oct at 20 kHz
+const VAR_LO = 1, VAR_HI = 24;
+const varFrac = (f) => VAR_LO * Math.pow(VAR_HI / VAR_LO, clampN(Math.log(f / FMIN) / LOGR, 0, 1));
+const bandFrac = (j) => S.res || varFrac(BFC[j]);   // bands per octave at band j
 function rebuild() {
-  const b = S.res, g = Math.pow(G10, 1 / (2 * b)), fcs = [];
-  for (let k = -420; k <= 420; k++) {
-    const fc = 1000 * Math.pow(G10, k / b);
-    if (fc >= FMIN / g - 1e-6 && fc <= FMAX * g + 1e-6) fcs.push(fc);
+  if (S.res === 0) {
+    const lo = [], hi = [], fc = [];
+    let a = FMIN / Math.SQRT2;   // first band centred on 20 Hz
+    while (true) {
+      let c = a * Math.pow(2, 0.5 / varFrac(a));            // width set at the centre, found in two passes
+      c = a * Math.pow(2, 0.5 / varFrac(c));
+      const bHi = c * c / a;
+      if (c > FMAX * 1.02) break;
+      lo.push(a); hi.push(bHi); fc.push(c); a = bHi;
+    }
+    nB = fc.length; BFC = Float64Array.from(fc); BLO = Float64Array.from(lo); BHI = Float64Array.from(hi);
+  } else {
+    const b = S.res, g = Math.pow(G10, 1 / (2 * b)), fcs = [];
+    for (let k = -420; k <= 420; k++) {
+      const fc = 1000 * Math.pow(G10, k / b);
+      if (fc >= FMIN / g - 1e-6 && fc <= FMAX * g + 1e-6) fcs.push(fc);
+    }
+    nB = fcs.length; BFC = Float64Array.from(fcs);
+    BLO = BFC.map(f => f / g); BHI = BFC.map(f => f * g);
   }
-  nB = fcs.length; BFC = Float64Array.from(fcs);
-  BLO = BFC.map(f => f / g); BHI = BFC.map(f => f * g);
   pw = new Float64Array(nB); tacc = new Float64Array(nB); valid = new Uint8Array(nB);
   vdb = new Float64Array(nB).fill(-200); pkv = new Float64Array(nB).fill(-200); pkt = new Float64Array(nB);
   const sizes = [512, 1024, 2048, 4096, 8192, 16384, 32768];
@@ -1183,6 +1226,15 @@ document.querySelectorAll('input[name=wt]').forEach((r) => {
   r.checked = r.value === S.weight;
   r.addEventListener('change', () => { if (!r.checked) return; S.weight = r.value; save(); rebuildWeights(); resetAvg(); onUnitChanged(); });
 });
+function setXScale(v) {
+  S.xScale = v === 'lin' ? 'lin' : 'log'; save();
+  document.querySelectorAll('input[name=xs]').forEach((r) => { r.checked = r.value === S.xScale; });
+  onBandsChanged(); sc.fillStyle = '#05070b'; sc.fillRect(0, 0, specEl.width, specEl.height);   // old spectrograph rows no longer line up
+}
+document.querySelectorAll('input[name=xs]').forEach((r) => {
+  r.checked = r.value === S.xScale;
+  r.addEventListener('change', () => { if (r.checked) setXScale(r.value); });
+});
 document.querySelectorAll('input[name=mode]').forEach((r) => {
   r.addEventListener('change', () => { if (r.checked) setMode(r.value); });
 });
@@ -1222,7 +1274,12 @@ $('compFile').addEventListener('change', () => {
 });
 $('compOn').addEventListener('change', () => { S.comp = $('compOn').checked; rebuildWeights(); resetAvg(); });
 document.addEventListener('keydown', (e) => {
-  if (/INPUT|SELECT|TEXTAREA/.test((e.target.tagName || ''))) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;   // leave Ctrl+C, Ctrl+R etc. to the browser
+  const tg = e.target, tag = tg.tagName || '';
+  if (tag === 'SELECT' || tag === 'TEXTAREA' || tg.isContentEditable) return;
+  // typing fields keep their keys; clicked radios, checkboxes and sliders should not block the shortcuts
+  if (tag === 'INPUT' && !/^(radio|checkbox|range|color|button)$/.test(tg.type)) return;
+  if (tag === 'INPUT' && e.code === 'Space') return;   // Space still toggles a focused checkbox/radio
   const k = e.key.toLowerCase();
   if (e.code === 'Space') { e.preventDefault(); toggleFreeze(); }
   else if (k === 'c') captureTrace();
@@ -1231,6 +1288,7 @@ document.addEventListener('keydown', (e) => {
   else if (k === 'f') toggleFullscreen();
   else if (k === 'p') pins.length = 0;
   else if (k === 't') setMode(S.mode === 'tf' ? 'rta' : 'tf');
+  else if (k === 'x') setXScale(S.xScale === 'lin' ? 'log' : 'lin');
   else if (k === 'd' && S.mode === 'tf') doFind();
 });
 if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) setStatus('Microphone access needs HTTPS or localhost here. The demo signal still works.', 'warn');
@@ -1281,8 +1339,18 @@ function toggleTheme() {
 }
 const traces = [];
 
-const xOf = (f) => PL.l + PL.w * Math.log(f / FMIN) / LOGR;
-const fOfX = (x) => FMIN * Math.exp((x - PL.l) / PL.w * LOGR);
+// Frequency axis: 'log' = every octave the same width, 'lin' = every Hz the same width
+const LINR = FMAX - FMIN;
+const xOf = (f) => (S.xScale === 'lin' ? PL.l + PL.w * (f - FMIN) / LINR : PL.l + PL.w * Math.log(f / FMIN) / LOGR);
+const fOfX = (x) => {
+  const u = (x - PL.l) / PL.w;
+  return S.xScale === 'lin' ? Math.max(1, FMIN + u * LINR) : FMIN * Math.exp(u * LOGR);
+};
+// linear grid / label spacing that stays readable at any plot width
+function linSteps() {
+  const pxPerK = PL.w / (LINR / 1000);
+  return pxPerK >= 40 ? [1000, 2000] : (pxPerK >= 18 ? [2000, 4000] : [5000, 5000]);
+}
 const yOf = (v) => { const lo = S.top - S.span; v = v < lo - 3 ? lo - 3 : (v > S.top + 20 ? S.top + 20 : v); return PL.t + PL.h * (S.top - v) / S.span; };
 const yPh = (v) => PH.t + PH.h * (180 - v) / 360;
 const yMg = (v) => clampN(MG.t + MG.h * (S.tfMid + S.tfHalf - v) / (2 * S.tfHalf), MG.t - 40, MG.t + MG.h + 40);
@@ -1312,6 +1380,15 @@ function resize() {
 }
 
 function vGrid(g, top, h) {
+  if (S.xScale === 'lin') {
+    const st = linSteps()[0];
+    for (let f = st; f < FMAX; f += st) {
+      const x = Math.round(xOf(f)) + 0.5;
+      g.strokeStyle = f % 5000 === 0 ? COL.major : COL.grid;
+      g.beginPath(); g.moveTo(x, top); g.lineTo(x, top + h); g.stroke();
+    }
+    return;
+  }
   for (const d of [10, 100, 1000, 10000]) {
     for (let m = 1; m <= 9; m++) {
       const f = m * d; if (f < FMIN || f > FMAX) continue;
@@ -1353,8 +1430,18 @@ function buildGrid() {
     g.strokeStyle = COL.frame; g.strokeRect(PL.l + 0.5, PL.t + 0.5, PL.w - 1, PL.h - 1);
   }
   g.textAlign = 'center';
-  const labels = { 20: '20', 50: '50', 100: '100', 200: '200', 500: '500', 1000: '1k', 2000: '2k', 5000: '5k', 10000: '10k', 20000: '20k' };
-  for (const f in labels) { g.fillStyle = COL.txt; g.fillText(labels[f], xOf(+f), PL.t + PL.h + 14); }
+  let labels = { 20: '20', 50: '50', 100: '100', 200: '200', 500: '500', 1000: '1k', 2000: '2k', 5000: '5k', 10000: '10k', 20000: '20k' };
+  if (S.xScale === 'lin') {
+    const st = linSteps()[1]; labels = { 20: '20' };
+    for (let f = st; f < FMAX; f += st) labels[f] = (f / 1000) + 'k';
+    labels[20000] = '20k';
+  }
+  g.fillStyle = COL.txt;
+  for (const f in labels) {
+    g.textAlign = +f === 20 ? 'left' : (+f === 20000 ? 'right' : 'center');
+    g.fillText(labels[f], xOf(+f), PL.t + PL.h + 14);
+  }
+  g.textAlign = 'center';
 }
 
 function strokeSmooth(c, xs, ys, n) {
@@ -1375,6 +1462,7 @@ function strokeSmooth(c, xs, ys, n) {
   }
 }
 
+const barGap = (w) => (w > 6 ? 1 : (w > 2 ? 0.5 : 0));
 let XS = new Float64Array(0), YS = new Float64Array(0);
 function linePath(fArr, vArr, count) {
   if (XS.length < count) { XS = new Float64Array(count); YS = new Float64Array(count); }
@@ -1415,6 +1503,7 @@ function drawTF(c) {
     }
     c.strokeStyle = COL.coh; c.lineWidth = 1; c.stroke();
   }
+  if (live) drawTarget(c, G.f, tf.mag, G.n, yMg, (i) => tf.coh[i] >= 0.5);
   for (const t of traces) if (t.type === 'tf') tfLine(c, t.f, t.mag, yMg, t.coh, false, t.col, 1.3);
   if (live) tfLine(c, G.f, tf.mag, yMg, tf.coh, false, COL.live, 1.8);
   c.restore();
@@ -1439,21 +1528,21 @@ function draw() {
     c.fillStyle = barGrad;
     for (let j = 0; j < nB; j++) {
       if (vdb[j] < -150) continue;
-      const x0 = xOf(BLO[j]), x1 = xOf(BHI[j]), gap = (x1 - x0) > 6 ? 1 : 0.5, y = yOf(vdb[j]);
-      c.fillRect(x0 + gap, y, x1 - x0 - 2 * gap, base - y);
+      const x0 = xOf(BLO[j]), x1 = xOf(BHI[j]), gap = barGap(x1 - x0), y = yOf(vdb[j]);
+      c.fillRect(x0 + gap, y, Math.max(0.5, x1 - x0 - 2 * gap), base - y);
     }
     c.fillStyle = COL.cap;
     for (let j = 0; j < nB; j++) {
       if (vdb[j] < -150) continue;
-      const x0 = xOf(BLO[j]), x1 = xOf(BHI[j]), gap = (x1 - x0) > 6 ? 1 : 0.5;
-      c.fillRect(x0 + gap, yOf(vdb[j]) - 1, x1 - x0 - 2 * gap, 2);
+      const x0 = xOf(BLO[j]), x1 = xOf(BHI[j]), gap = barGap(x1 - x0);
+      c.fillRect(x0 + gap, yOf(vdb[j]) - 1, Math.max(0.5, x1 - x0 - 2 * gap), 2);
     }
     if (hasPeak) {
       c.fillStyle = COL.peak;
       for (let j = 0; j < nB; j++) {
         if (pkv[j] < -150) continue;
-        const x0 = xOf(BLO[j]), x1 = xOf(BHI[j]), gap = (x1 - x0) > 6 ? 1 : 0.5;
-        c.fillRect(x0 + gap, yOf(pkv[j]) - 1, x1 - x0 - 2 * gap, 2);
+        const x0 = xOf(BLO[j]), x1 = xOf(BHI[j]), gap = barGap(x1 - x0);
+        c.fillRect(x0 + gap, yOf(pkv[j]) - 1, Math.max(0.5, x1 - x0 - 2 * gap), 2);
       }
     }
   } else {
@@ -1527,7 +1616,7 @@ const LUT = (() => {
 })();
 function buildSpecMap() {
   const w = specEl.width; specMap = new Int16Array(w);
-  for (let x = 0; x < w; x++) specMap[x] = nearestBand(FMIN * Math.exp((x + 0.5) / w * LOGR));
+  for (let x = 0; x < w; x++) specMap[x] = nearestBand(fOfX(PL.l + (x + 0.5) / w * PL.w));
   specRow = sc.createImageData(w, 1);
 }
 let specAcc = 0;
@@ -1629,7 +1718,7 @@ function updateReadouts(now) {
     $('clip').classList.toggle('on', now < clipUntil);
     let bj = -1, bv = -150; for (let j = 0; j < nB; j++) if (vdb[j] > bv) { bv = vdb[j]; bj = j; }
     $('vPF').textContent = bj >= 0 ? fmtF(BFC[bj]) : '-';
-    $('vPN').textContent = (bj >= 0 && S.res >= 12) ? noteStr(BFC[bj], true) : '';
+    $('vPN').textContent = (bj >= 0 && bandFrac(bj) >= 12) ? noteStr(BFC[bj], true) : '';
     const rp = m.refPeak > 1e-9 ? 20 * Math.log10(m.refPeak) : -200; m.refPeak = 0;
     refShown = Math.max(rp, refShown - 2.5);
     $('vRef').textContent = refShown > -100 ? refShown.toFixed(1) + ' dBFS' + (rp >= -0.1 ? ' CLIP' : '') : 'no signal';
@@ -1700,22 +1789,75 @@ plotEl.addEventListener('click', (e) => {
 });
 $('pinClear').addEventListener('click', () => { pins.length = 0; });
 
+// ----- target curves -----
+// Preset shapes in dB relative to 1 kHz, joined on a log-frequency scale. Typical starting points, not standards
+// (except the X-curve, which follows ISO 2969 / SMPTE 202 in shape).
+const TARGETS = {
+  live:   [[20, 6], [40, 7], [63, 6], [100, 4], [200, 1.5], [400, 0], [1000, 0], [2000, -0.5], [4000, -1.5], [8000, -3], [16000, -6], [20000, -7]],
+  rock:   [[20, 8], [40, 10], [63, 9], [100, 6], [200, 2], [400, 0], [1000, 0], [2000, -1], [4000, -2], [8000, -4], [16000, -7], [20000, -8]],
+  club:   [[20, 9], [35, 12], [50, 12], [80, 9], [125, 4], [250, 1], [500, 0], [1000, 0], [2000, -0.5], [4000, -1.5], [8000, -3], [16000, -5], [20000, -6]],
+  speech: [[20, -12], [50, -8], [80, -3], [125, 0], [250, 0], [1000, 0], [2000, 1], [3150, 1.5], [5000, 0.5], [8000, -1.5], [12500, -4], [20000, -8]],
+  studio: [[20, 5], [50, 4], [100, 3], [200, 2], [500, 1], [1000, 0], [2000, -1], [5000, -2.5], [10000, -4], [20000, -6]],
+  xcurve: [[20, -4], [40, -1], [63, 0], [2000, 0], [10000, -7], [20000, -13]]
+};
+function interpPts(F, D, f) {
+  const n = F.length; if (!n) return 0;
+  if (f <= F[0]) return D[0];
+  if (f >= F[n - 1]) return D[n - 1];
+  let lo = 0, hi = n - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (F[m] <= f) lo = m; else hi = m; }
+  return D[lo] + (D[hi] - D[lo]) * Math.log(f / F[lo]) / Math.log(F[hi] / F[lo]);
+}
+const tgtCache = {};
+function tgtShape() {   // returns f => dB, or null when there is nothing to draw
+  const t = S.target;
+  if (t === 'off') return null;
+  if (t === 'custom') return S.tgtF.length > 1 ? (f) => interpPts(S.tgtF, S.tgtD, f) : null;
+  if (TARGETS[t]) {
+    const P = tgtCache[t] || (tgtCache[t] = { F: TARGETS[t].map((p) => p[0]), D: TARGETS[t].map((p) => p[1]) });
+    return (f) => interpPts(P.F, P.D, f);
+  }
+  const sl = parseFloat(t);
+  return isFinite(sl) ? (f) => sl * Math.log2(f / 1000) : null;
+}
+// F/V = measured curve, yFn = dB -> y, ok(i) = whether point i counts for levelling
+function drawTarget(c, F, V, n, yFn, ok) {
+  const shape = tgtShape(); if (!shape) return;
+  let s = 0, k = 0;
+  for (let i = 0; i < n; i++) {
+    const f = F[i]; if (f < 100 || f > 4000 || !(V[i] > -150) || (ok && !ok(i))) continue;
+    s += V[i] - shape(f); k++;
+  }
+  if (!k) return;
+  const ref = s / k, N = 160, X = new Float64Array(N + 1), Y = new Float64Array(N + 1);
+  for (let i = 0; i <= N; i++) { const f = FMIN * Math.pow(FMAX / FMIN, i / N); X[i] = xOf(f); Y[i] = ref + shape(f); }
+  c.save();
+  const tol = +S.tgtTol;
+  if (tol > 0) {
+    c.beginPath();
+    for (let i = 0; i <= N; i++) { const y = yFn(Y[i] + tol); if (i) c.lineTo(X[i], y); else c.moveTo(X[i], y); }
+    for (let i = N; i >= 0; i--) c.lineTo(X[i], yFn(Y[i] - tol));
+    c.closePath(); c.fillStyle = COL.tgt; c.globalAlpha = 0.1; c.fill(); c.globalAlpha = 1;
+  }
+  c.setLineDash([7, 5]); c.strokeStyle = COL.tgt; c.lineWidth = 1.5; c.beginPath();
+  for (let i = 0; i <= N; i++) { const y = yFn(Y[i]); if (i) c.lineTo(X[i], y); else c.moveTo(X[i], y); }
+  c.stroke(); c.restore();
+}
+function parsePairs(text) {
+  const F = [], D = [];
+  for (const line of text.split(/\r?\n/)) {
+    const p = line.trim().split(/[\s,;\t]+/);
+    if (p.length < 2) continue;
+    const f = parseFloat(p[0]), d = parseFloat(p[1]);
+    if (isFinite(f) && isFinite(d) && f > 0) { F.push(f); D.push(d); }
+  }
+  const idx = F.map((_, i) => i).sort((a, b) => F[a] - F[b]);
+  return { f: idx.map((i) => F[i]), d: idx.map((i) => D[i]) };
+}
+
 // ----- plot overlays: target curve, feedback flags, pins (called inside the plot clip) -----
 function drawOverlays(c) {
-  if (S.target !== 'off') {
-    const sl = parseFloat(S.target); let s = 0, n = 0;
-    for (let j = 0; j < nB; j++) {
-      const f = BFC[j]; if (f < 100 || f > 4000 || vdb[j] < -150) continue;
-      s += vdb[j] - sl * Math.log2(f / 1000); n++;
-    }
-    if (n) {
-      const ref = s / n;
-      c.save(); c.setLineDash([7, 5]); c.strokeStyle = COL.tgt; c.lineWidth = 1.5; c.beginPath();
-      c.moveTo(xOf(FMIN), yOf(ref + sl * Math.log2(FMIN / 1000)));
-      c.lineTo(xOf(FMAX), yOf(ref + sl * Math.log2(FMAX / 1000)));
-      c.stroke(); c.restore();
-    }
-  }
+  drawTarget(c, BFC, vdb, nB, yOf);
   c.font = '11px ui-monospace,Menlo,Consolas,monospace'; c.textBaseline = 'top';
   if (S.fbOn) {
     for (const it of fb.list) {
@@ -1744,7 +1886,7 @@ function fbStep(dt) {
   let mx = -999; for (let j = 0; j < nB; j++) if (vdb[j] > mx) mx = vdb[j];
   for (let j = 0; j < nB; j++) {
     let p = 0;
-    if (S.res >= 6 && vdb[j] > -150 && vdb[j] > mx - 30) {
+    if (bandFrac(j) >= 6 && vdb[j] > -150 && vdb[j] > mx - 30) {
       let s = 0, n = 0;
       for (let d = 2; d <= 5; d++) {
         if (j - d >= 0 && vdb[j - d] > -150) { s += vdb[j - d]; n++; }
@@ -1767,7 +1909,7 @@ let fbSig = '';
 function fbUpdateUI() {
   const el = $('fbList'); let html;
   if (!S.fbOn) html = '<span class="hint">Off. Turn it on, then raise the gain: steady spikes that ring above their neighbours are flagged here.</span>';
-  else if (S.res < 6) html = '<span class="hint">Switch Res to 1/6 oct or finer.</span>';
+  else if (S.res && S.res < 6) html = '<span class="hint">Switch Res to 1/6 oct or finer.</span>';
   else if (!fb.list.length) html = '<span class="hint">Listening. Nothing ringing right now.</span>';
   else html = fb.list.map((it) => {
     const cut = Math.round(clampN(it.prom - 3, 3, 12));
@@ -1781,7 +1923,24 @@ $('fbClear').addEventListener('click', () => { fb.t.fill(0); fb.list = []; fbUpd
 fbUpdateUI();
 
 // ----- target + SPL limit -----
-bind('target', 'target', String);
+function tgtSync() {
+  $('target').value = S.target; $('tgtTol').value = String(S.tgtTol);
+  $('tgtCustomBox').hidden = S.target !== 'custom';
+  $('tgtName').textContent = S.tgtF.length > 1 ? S.tgtName + ' (' + S.tgtF.length + ' pts)' : 'No curve loaded. Text file with frequency and dB columns.';
+}
+bind('target', 'target', String, tgtSync);
+bind('tgtTol', 'tgtTol', Number);
+$('tgtFile').addEventListener('change', () => {
+  const f = $('tgtFile').files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    const c = parsePairs(String(r.result));
+    if (c.f.length < 2) { $('tgtName').textContent = 'Could not read ' + f.name; return; }
+    S.tgtF = c.f; S.tgtD = c.d; S.tgtName = f.name; save(); tgtSync(); $('tgtFile').value = '';
+  };
+  r.readAsText(f);
+});
+tgtSync();
 bind('limit', 'limit', Number);
 bind('limitF', 'limitF', Number);
 let lastLim = [-999, -999];
@@ -2034,7 +2193,7 @@ function drawVU(dt, now) {
 // ----- settings file: export / import (JSON) -----
 const SETTINGS_APP = 'WebAudio-RTA';
 const SELKEY = { res: 'res', avg: 'avg', peakKey: 'peak', style: 'style', span: 'span', fpsCap: 'fpsCap', ch: 'chan', ref: 'refSrc', smooth: 'smooth',
-  target: 'target', vuPos: 'vuPos', vuBar: 'vuBar', vuSeg: 'vuSeg', vuMode: 'vuMode', vuUnlit: 'vuUnlit' };
+  target: 'target', tgtTol: 'tgtTol', vuPos: 'vuPos', vuBar: 'vuBar', vuSeg: 'vuSeg', vuMode: 'vuMode', vuUnlit: 'vuUnlit' };
 const RANGES = { vuLen: [20, 100], vuSize: [30, 120], vuFlashMs: [50, 600], cohB: [0, 0.9], tfSplit: [0.15, 0.75] };
 function exportSettings() {
   const o = { app: SETTINGS_APP, version: 1, saved: new Date().toISOString(), settings: Object.assign({}, S),
@@ -2047,6 +2206,7 @@ function syncUI(prevTheme) {
   [['res', 'res'], ['avg', 'avg'], ['peak', 'peakKey'], ['style', 'style'], ['top', 'top'], ['span', 'span'], ['fpsCap', 'fpsCap'], ['offset', 'offset'],
     ['chan', 'ch'], ['refSrc', 'ref'], ['smooth', 'smooth'], ['target', 'target'], ['limit', 'limit'], ['limitF', 'limitF']].forEach((a) => { $(a[0]).value = String(S[a[1]]); });
   document.querySelectorAll('input[name=wt]').forEach((r) => { r.checked = r.value === S.weight; });
+  document.querySelectorAll('input[name=xs]').forEach((r) => { r.checked = r.value === S.xScale; });
   $('cohB').value = S.cohB; $('cohV').textContent = Math.round(S.cohB * 100) + '%'; $('cohOn').checked = S.cohOn;
   $('specOn').checked = S.spec; $('specwrap').hidden = !S.spec;
   $('fbOn').checked = S.fbOn; $('limitOn').checked = S.limitOn; $('limitFOn').checked = S.limitFOn; $('wake').checked = S.wake;
@@ -2054,7 +2214,8 @@ function syncUI(prevTheme) {
   if (capNode && capNode.port) capNode.port.postMessage({ ch: S.ch, rch: S.ref });
   setSideW(S.sideW); setSpecH(S.specH);
   applyTheme(prevTheme); applyMode(); onBandsChanged(); onUnitChanged();
-  syncTipBtn(); vuSync(); placeVU(); resize();
+  if (S.tgtF.length !== S.tgtD.length) { S.tgtF = []; S.tgtD = []; }
+  syncTipBtn(); vuSync(); placeVU(); tgtSync(); resize();
   fb.list = []; fbUpdateUI(); limitCheck(lastLim[0], lastLim[1]); applyWake(); save();
 }
 function applySettings(src, extra) {
@@ -2066,9 +2227,11 @@ function applySettings(src, extra) {
     let v = src[k];
     if (typeof v === 'number') { if (!isFinite(v)) continue; if (RANGES[k]) v = clampN(v, RANGES[k][0], RANGES[k][1]); }
     if (SELKEY[k] && !Array.from($(SELKEY[k]).options).some((o) => o.value === String(v))) continue;
-    if ((k === 'theme' && v !== 'light' && v !== 'dark') || (k === 'mode' && v !== 'rta' && v !== 'tf') ||
+    if ((k === 'theme' && v !== 'light' && v !== 'dark') || (k === 'mode' && v !== 'rta' && v !== 'tf') || (k === 'xScale' && v !== 'log' && v !== 'lin') ||
         (k === 'weight' && ['Z', 'A', 'C'].indexOf(v) < 0) || (k === 'tfHalf' && [6, 12, 18, 24, 30, 40, 60].indexOf(v) < 0)) continue;
     if (/^vuC[123]$/.test(k) && v !== '' && !/^#[0-9a-f]{6}$/i.test(v)) continue;
+    if ((k === 'tgtF' || k === 'tgtD') && !(Array.isArray(v) && v.length <= 4096 && v.every((x) => typeof x === 'number' && isFinite(x) && (k === 'tgtD' || x > 0)))) continue;
+    if (Array.isArray(v)) v = v.slice();
     S[k] = v; n++;
   }
   const mc = extra.mic, num = (x) => typeof x === 'number' && isFinite(x);
@@ -2135,8 +2298,9 @@ function tip(sel, text, up) {
   ['#clip', 'Clip lamp: lights red when the input reaches full scale.'],
   ['#vuwrap', 'dBFS level bars. RMS is the average level, PEAK is the loudest instant with a short hold. Green is safe, yellow is hot, red is within 3 dB of clipping.'],
   ['input[name=mode]', 'RTA shows the live spectrum. Transfer compares the measurement with a reference to show frequency response and phase. Shortcut: T.', '.seg'],
-  ['#res', 'How finely the spectrum is divided. 1/3 octave matches a graphic EQ, finer settings show narrow peaks such as feedback.', '.grp'],
+  ['#res', 'How finely the spectrum is divided. 1/3 octave matches a graphic EQ, finer settings show narrow peaks such as feedback. Variable starts at 1/1 oct in the lows and narrows to 1/24 oct in the highs.', '.grp'],
   ['#smooth', 'Smoothing for the transfer curve. Smaller fractions show more detail, larger ones show the general trend.', '.grp'],
+  ['input[name=xs]', 'Frequency axis. Log gives every octave the same width (how we hear). Lin gives every Hz the same width, which spreads out the highs and squeezes the lows. Shortcut: X.', '.grp'],
   ['input[name=wt]', 'Weighting for the meters and spectrum. Z is flat, A follows how we hear at moderate levels, C is flatter and used for loud sound.', '.grp'],
   ['#avg', 'How long readings are averaged. Longer is steadier but slower to react. Infinite keeps averaging until you reset.', '.grp'],
   ['#peak', 'Peak-hold markers on each band so you can see the highest level reached. Off, timed, or held until reset.', '.grp'],
@@ -2174,7 +2338,9 @@ function tip(sel, text, up) {
   ['#gen', 'Choose the test signal sent to your speakers. Start with a low level.', '.fld'],
   ['#genF', 'Frequency of the sine tone.', '.fld'],
   ['#genL', 'Output level of the generator. Start low to protect your speakers and ears.', '.fld'],
-  ['#target', 'Overlay a dashed target curve that levels itself to your signal, to see how far each band is from the shape you want.', '.fld'],
+  ['#target', 'Overlay a dashed target curve that levels itself to your signal, to see how far each band is from the shape you want. Live adds low end and rolls off the top gently; Club pushes the sub; Speech cuts the lows and lifts presence.', '.fld'],
+  ['#tgtTol', 'Shade a band around the target. Anything inside it is close enough.', '.fld'],
+  ['#tgtFile', 'Load your own target: a text file with frequency and dB columns, e.g. 100 4'],
   ['#fbOn', 'Watch for steady spikes that ring above their neighbours, a sign of feedback, and suggest where to notch.', '.fld'],
   ['#fbClear', 'Forget the current feedback flags and start listening again.'],
   ['#pinClear', 'Remove all pinned markers.'],

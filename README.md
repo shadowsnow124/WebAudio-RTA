@@ -12,13 +12,19 @@ All audio is analyzed on your device. Nothing is recorded or uploaded.
 
 ### RTA mode
 - Fractional-octave spectrum: 1/1, 1/3, 1/6, 1/12, 1/24 or 1/48 octave
+- **Variable resolution**: wide 1/1-octave bands in the lows narrowing smoothly to 1/24 octave in the highs, so the bass stays steady and the highs show fine detail
 - Z, A or C frequency weighting
 - Averaging from 125 ms to 8 s, or infinite
 - Peak hold: 1 s, 3 s, 10 s or hold
 - Bars or line trace, plus a scrolling spectrograph underneath
+- **Log or linear frequency axis**: Log gives every octave the same width; Lin gives every Hz the same width (works in both RTA and Transfer mode)
 - **Freeze** and **Capture** a trace to compare against the live one
 - **Markers**: click the plot to pin up to 4 bands with their readings
-- **Target curve overlay**: flat, -1.5, -3 or -4.5 dB/oct, auto-levelled to your signal between 100 Hz and 4 kHz
+- **Target curves**, auto-levelled to your signal between 100 Hz and 4 kHz, with an optional ±1.5 / ±3 / ±6 dB tolerance band:
+  - Presets: Flat, Live music, Rock / loud live, Club / EDM / hip-hop, Speech / corporate, Studio / hi-fi room, Cinema X-curve
+  - Slopes: -1.5, -3, -4.5 dB/oct
+  - Custom: load your own frequency / dB text file (saved with your settings)
+  - Shown on the RTA (use pink noise) and on the Transfer magnitude
 - **Feedback finder**: flags steady peaks ringing above their neighbours and suggests where to notch
 
 ### Transfer mode (dual channel)
@@ -101,6 +107,7 @@ Tips:
 | `C` | Capture trace |
 | `R` | Reset meters and averages |
 | `T` | Toggle RTA / Transfer |
+| `X` | Toggle log / linear frequency axis |
 | `D` | Find delay (Transfer mode) |
 | `P` | Clear markers |
 | `F` | Fullscreen |
