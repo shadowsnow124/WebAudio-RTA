@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WebAudio-RTA</title>
-<link rel="icon" type="image/x-icon" href="/img/logo.png">
+<link rel="icon" type="image/png" href="img/logo.png">
 <script>
 try{var t=(JSON.parse(localStorage.getItem('webrta.v1')||'{}')).theme;if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='dark';}
 </script>
@@ -2062,6 +2062,7 @@ function applySettings(src, extra) {
   const prevTheme = S.theme; let n = 0;
   for (const k in S) {
     if (k === 'comp' || !(k in src) || typeof src[k] !== typeof S[k]) continue;
+    if (extra.skipCal && (k === 'offset' || k === 'cal')) continue;   // calibration belongs to one mic + interface
     let v = src[k];
     if (typeof v === 'number') { if (!isFinite(v)) continue; if (RANGES[k]) v = clampN(v, RANGES[k][0], RANGES[k][1]); }
     if (SELKEY[k] && !Array.from($(SELKEY[k]).options).some((o) => o.value === String(v))) continue;
@@ -2091,8 +2092,13 @@ function applySettings(src, extra) {
 function importSettings(text) {
   let o; try { o = JSON.parse(text); } catch (e) { return 'Import failed: not valid JSON.'; }
   if (!o || typeof o !== 'object' || o.app !== SETTINGS_APP || !o.settings || typeof o.settings !== 'object') return 'Import failed: not a WebAudio settings file.';
-  const n = applySettings(o.settings, { mic: o.micCorrection, gen: o.generator });
-  return 'Imported ' + n + ' settings' + (typeof o.saved === 'string' ? ' (saved ' + o.saved.slice(0, 10) + ')' : '') + '.';
+  const st = o.settings, hasCal = st.cal === true && typeof st.offset === 'number' && isFinite(st.offset) && st.offset !== 0;
+  const useCal = hasCal && confirm('This file includes an SPL calibration (offset ' + st.offset.toFixed(1) + ' dB).\n\n' +
+    'Only apply it if you are using the same measurement mic, interface and input gain it was made with.\n\n' +
+    'OK = apply the calibration\nCancel = keep your current calibration');
+  const n = applySettings(st, { mic: o.micCorrection, gen: o.generator, skipCal: !useCal });
+  return 'Imported ' + n + ' settings' + (typeof o.saved === 'string' ? ' (saved ' + o.saved.slice(0, 10) + ')' : '') +
+    (hasCal ? (useCal ? ', calibration applied.' : ', calibration skipped.') : '.');
 }
 $('setExp').addEventListener('click', exportSettings);
 $('setImp').addEventListener('click', () => $('setFile').click());

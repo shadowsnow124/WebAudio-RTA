@@ -1,0 +1,8 @@
+# Build/installer files that should never be committed
+*.exe
+*.msi
+
+# OS clutter
+Thumbs.db
+Desktop.ini
+.DS_Store
